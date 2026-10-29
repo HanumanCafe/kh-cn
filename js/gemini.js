@@ -40,7 +40,7 @@ const thinkingFor = new Map([['gemini-3.8-flash', 'low'], ['gemini-flash-latest'
 const cooldownUntil = new Map(); // ម៉ូដែលដែលទើបបដិសេធ — សាកក្រោយគេមួយរយៈ
 const FATAL = new Set(['badkey', 'region', 'network']);
 const MAX_PARALLEL = 3;
-const NEXT_HEDGE_MS = 3000;
+const NEXT_HEDGE_MS = 2500;
 
 // ម៉ូដែលដែលដំណើរការចុងក្រោយ (ចងចាំក្នុងទូរសព្ទ ២ ម៉ោង) — សាកវាមុនគេពេលបើក App លើកក្រោយ
 const LAST_GOOD_KEY = 'khcn.lastgood.v1';
@@ -176,7 +176,8 @@ function moreUseful(a, b) {
 }
 
 // សាកម៉ូដែលជាបន្តបន្ទាប់ ហើយបើយឺត ចាប់ផ្តើមម៉ូដែលបន្ទាប់ស្របគ្នា — យកចម្លើយដែលជោគជ័យមុនគេ
-function runHedged(kind, apiKey, models, buildBody, { hedgeMs, timeoutMs, accept }) {
+// startParallel = ចំនួនម៉ូដែលដែលចាប់ផ្តើមព្រមគ្នាតាំងពីដំបូង (លឿនជាង តែប្រើ quota ច្រើនជាង)
+function runHedged(kind, apiKey, models, buildBody, { hedgeMs, timeoutMs, accept, startParallel = 1 }) {
   return new Promise((resolve, reject) => {
     const outer = new AbortController();
     let next = 0;
@@ -232,8 +233,19 @@ function runHedged(kind, apiKey, models, buildBody, { hedgeMs, timeoutMs, accept
       if (next < models.length) launch();
       else if (running === 0) finish(false, lastError || new GeminiError('server', 'No model available'));
     };
-    launch();
+    for (let i = 0; i < Math.min(startParallel, MAX_PARALLEL); i++) launch();
   });
+}
+
+// បើកការតភ្ជាប់ទៅ Google ជាមុន ពេលអ្នកប្រើកំពុងនិយាយ ដើម្បីឲ្យការផ្ញើសំឡេងលឿនជាង
+let lastWarm = 0;
+export function warmUp(apiKey) {
+  if (!apiKey || Date.now() - lastWarm < 3 * 60e3) return;
+  lastWarm = Date.now();
+  fetch('https://generativelanguage.googleapis.com/v1beta/models?pageSize=1', {
+    headers: { 'x-goog-api-key': apiKey },
+    cache: 'no-store',
+  }).catch(() => { lastWarm = 0; });
 }
 
 // យកលទ្ធផល (អត្ថបទ ឬសំឡេង) ពីចម្លើយ — តាមរបៀបដូច SDK ផ្លូវការ
@@ -293,7 +305,7 @@ function systemPrompt({ zhScript, context }) {
     '- Interpret only. Never answer questions, add comments, greetings, or explanations. If the speaker asks a question, translate the question.',
     '- Keep the meaning, tone and politeness of the speaker. Use natural everyday spoken language that a native speaker would really say, not word-for-word translation.',
     '- Keep names, numbers, prices, quantities, dates, units and brand names accurate. Write numbers with digits.',
-    '- Khmer text: standard Khmer Unicode script, natural spoken Khmer as used in Cambodia today.',
+    '- Khmer text: standard Khmer Unicode script, natural spoken Khmer as used in Cambodia today. Do not put spaces between Khmer words; use a space only where Khmer normally has one (between phrases or around numbers and foreign words).',
     `- Chinese text: Mandarin written in ${script} Chinese characters.`,
     '- "pinyin": Hanyu Pinyin with tone marks for the Chinese sentence of this turn (the transcription if Chinese was spoken, otherwise the translation), with spaces between words. Empty string if there is no Chinese.',
     'Return only the JSON object.',
@@ -355,8 +367,10 @@ export function translate({ apiKey, model, from, audioBase64, text, settings }) 
     if (!['km', 'zh', 'other', 'none'].includes(spoken)) spoken = clean(data.heard) ? from : 'none';
     return { spoken, heard: clean(data.heard), translation: clean(data.translation), pinyin: clean(data.pinyin), model: used };
   };
+  // ចាប់ផ្តើមម៉ូដែលពីរព្រមគ្នា ហើយបន្ថែមទីបីបើទាំងពីរយឺតជាង ២.៥ វិនាទី
   return runHedged('translate', apiKey, orderModels('translate', model, TRANSLATE_MODELS), buildBody, {
-    hedgeMs: audioBase64 ? 5000 : 4000,
+    startParallel: 2,
+    hedgeMs: 2500,
     timeoutMs: 25000,
     accept,
   });
@@ -384,7 +398,7 @@ export function synthesize({ apiKey, model, text, voice }) {
     return { data: audio.data, mimeType: audio.mime_type || 'audio/wav', sampleRate: audio.sample_rate || 24000, model: used };
   };
   return runHedged('tts', apiKey, orderModels('tts', model, TTS_MODELS), buildBody, {
-    hedgeMs: 6000,
+    hedgeMs: 4500,
     timeoutMs: 35000,
     accept,
   });

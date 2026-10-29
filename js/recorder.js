@@ -3,7 +3,7 @@
 
 const TARGET_RATE = 16000;     // Gemini ស្តាប់បានល្អនៅ 16 kHz ហើយឯកសារតូច
 const SPEECH_MIN = 0.012;      // កម្រិតសំឡេងទាបបំផុតដែលរាប់ថាជាការនិយាយ
-const END_SILENCE_MS = 1600;   // ស្ងាត់ប៉ុណ្ណេះក្រោយនិយាយ => ឈប់ថត
+const END_SILENCE_MS = 1100;   // ស្ងាត់ប៉ុណ្ណេះក្រោយនិយាយ => ឈប់ថត
 const NO_SPEECH_MS = 8000;     // មិនឮអ្វីសោះប៉ុណ្ណេះ => ឈប់ថត
 
 export function setAudioSession(type) {

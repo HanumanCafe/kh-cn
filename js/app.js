@@ -3,7 +3,7 @@
 
 import { loadSettings, saveSettings, loadHistory, saveHistory } from './store.js';
 import { Recorder } from './recorder.js';
-import { translate, synthesize, VOICES, GeminiError } from './gemini.js';
+import { translate, synthesize, warmUp, VOICES, GeminiError } from './gemini.js';
 import { unlockAudio, stopAll, playUrl, audioToUrl, speakDevice, deviceVoiceFor } from './speaker.js';
 
 const VERSION = '1.0.0';
@@ -423,6 +423,7 @@ async function onTalk(lang) {
   });
   state.rec = { lang, recorder, phase: 'starting', watchdog: null };
   setTalkState(lang, 'starting');
+  warmUp(state.settings.apiKey); // បើកការតភ្ជាប់ទៅ Google ខណៈពេលអ្នកកំពុងនិយាយ
   try {
     await recorder.start();
   } catch (err) {
