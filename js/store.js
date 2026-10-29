@@ -7,7 +7,7 @@ const MAX_HISTORY = 200;
 
 export const DEFAULT_SETTINGS = {
   apiKey: '',
-  model: 'gemini-3.8-flash',          // ស្តាប់ + បកប្រែ
+  model: 'gemini-3.6-flash',          // ស្តាប់ + បកប្រែ
   ttsModel: 'gemini-3.8-flash-tts',   // បង្កើតសំឡេង
   kmVoice: 'Kore',                    // សំឡេងខ្មែរ (Gemini)
   zhEngine: 'device',                 // 'device' = សំឡេង iPhone, 'gemini' = សំឡេង Gemini

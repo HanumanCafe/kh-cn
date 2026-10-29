@@ -2,11 +2,15 @@
 //   1) ស្តាប់សំឡេង + បកប្រែ ក្នុងការហៅតែម្តង
 //   2) បកប្រែអក្សរដែលវាយ
 //   3) បង្កើតសំឡេងអាន (text-to-speech) — សំខាន់សម្រាប់ភាសាខ្មែរ ព្រោះ iPhone គ្មានសំឡេងខ្មែរ
+//
+// ពេល Google មានអ្នកប្រើច្រើន ម៉ូដែលខ្លះឆ្លើយយឺត ឬបដិសេធ (503)។ ដូច្នេះ៖
+//   - បើម៉ូដែលទីមួយយឺតពេក កម្មវិធីចាប់ផ្តើមម៉ូដែលទីពីរស្របគ្នា ហើយយកចម្លើយណាមកមុន
+//   - បើម៉ូដែលណាបដិសេធ ប្តូរទៅម៉ូដែលបន្ទាប់ភ្លាម
+//   - ចងចាំម៉ូដែលដែលដំណើរការចុងក្រោយ ហើយសាកវាមុនគេនៅលើកក្រោយ
 
 const ENDPOINT = 'https://generativelanguage.googleapis.com/v1beta/interactions';
 
-// បើម៉ូដែលទីមួយអស់កំណត់ឥតគិតថ្លៃ (429) ឬរកមិនឃើញ (404) នឹងសាកម៉ូដែលបន្ទាប់
-export const TRANSLATE_MODELS = ['gemini-3.8-flash', 'gemini-3.5-flash-lite', 'gemini-3.1-flash-lite', 'gemini-flash-latest'];
+export const TRANSLATE_MODELS = ['gemini-3.6-flash', 'gemini-3.8-flash', 'gemini-3.5-flash-lite', 'gemini-3.1-flash-lite', 'gemini-flash-latest'];
 export const TTS_MODELS = ['gemini-3.8-flash-tts', 'gemini-3.8-flash-lite-tts', 'gemini-3.1-flash-tts-preview'];
 
 export const VOICES = [
@@ -24,27 +28,32 @@ export class GeminiError extends Error {
   constructor(kind, message, { status = 0, model = '' } = {}) {
     super(message);
     this.name = 'GeminiError';
-    this.kind = kind;      // badkey | quota | model | region | network | timeout | badrequest | server | parse | noaudio
+    this.kind = kind;      // badkey | quota | model | region | network | timeout | badrequest | server | parse | noaudio | aborted
     this.status = status;
     this.model = model;
     this.daily = false;
   }
 }
 
-// ម៉ូដែលដែលទើបតែប្រើអស់កំណត់ — រំលងមួយរយៈ
-const cooldownUntil = new Map();
+// ម៉ូដែលខ្លះមិនទទួល thinking_level "minimal" (កម្មវិធីរៀនបន្ថែមដោយខ្លួនឯង)
+const thinkingFor = new Map([['gemini-3.8-flash', 'low'], ['gemini-flash-latest', 'low']]);
+const cooldownUntil = new Map(); // ម៉ូដែលដែលទើបបដិសេធ — សាកក្រោយគេមួយរយៈ
+const lastGood = { translate: null, tts: null };
+const FATAL = new Set(['badkey', 'region', 'network']);
+const MAX_PARALLEL = 2;
 
-function modelChain(primary, all) {
-  const list = [primary, ...all].filter((m, i, a) => m && a.indexOf(m) === i);
+function orderModels(kind, primary, defaults) {
+  const list = [lastGood[kind], primary, ...defaults].filter((m, i, a) => m && a.indexOf(m) === i);
   const now = Date.now();
   const ready = list.filter(m => !(cooldownUntil.get(m) > now));
-  return ready.length ? ready : list;
+  const cooling = list.filter(m => cooldownUntil.get(m) > now);
+  return [...ready, ...cooling];
 }
 
 function toError(status, data, model) {
   const err = (data && (data.error || data)) || {};
-  const message = String(err.message || err.status || `HTTP ${status}`);
-  const text = (message + ' ' + JSON.stringify(err.details || '')).toLowerCase();
+  const message = String(err.message || err.status || err.code || `HTTP ${status}`);
+  const text = (message + ' ' + JSON.stringify(err.details || '') + ' ' + String(err.code || '')).toLowerCase();
   let kind;
   if (status === 429) kind = 'quota';
   else if (status === 404) kind = 'model';
@@ -58,9 +67,19 @@ function toError(status, data, model) {
   return e;
 }
 
-async function post(apiKey, body, timeoutMs) {
+// ការហៅមួយដង (មានកំណត់ពេល និងអាចបោះបង់ពីខាងក្រៅ)
+async function post(apiKey, body, timeoutMs, outerSignal) {
   const ctrl = new AbortController();
-  const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+  let timedOut = false;
+  const timer = setTimeout(() => { timedOut = true; ctrl.abort(); }, timeoutMs);
+  const onOuterAbort = () => ctrl.abort();
+  if (outerSignal) {
+    if (outerSignal.aborted) ctrl.abort();
+    else outerSignal.addEventListener('abort', onOuterAbort, { once: true });
+  }
+  const abortedError = () => (timedOut
+    ? new GeminiError('timeout', 'Request timed out', { model: body.model })
+    : new GeminiError('aborted', 'Cancelled', { model: body.model }));
   try {
     let res;
     try {
@@ -71,29 +90,30 @@ async function post(apiKey, body, timeoutMs) {
         signal: ctrl.signal,
       });
     } catch (err) {
-      if (err && err.name === 'AbortError') throw new GeminiError('timeout', 'Request timed out', { model: body.model });
+      if (err && err.name === 'AbortError') throw abortedError();
       throw new GeminiError('network', (err && err.message) || 'Network error', { model: body.model });
     }
     let data = null;
     try { data = await res.json(); } catch (err) {
-      if (err && err.name === 'AbortError') throw new GeminiError('timeout', 'Request timed out', { model: body.model });
+      if (err && err.name === 'AbortError') throw abortedError();
     }
     if (!res.ok) throw toError(res.status, data, body.model);
     if (!data) throw new GeminiError('parse', 'Empty response', { model: body.model });
     return data;
   } finally {
     clearTimeout(timer);
+    if (outerSignal) outerSignal.removeEventListener('abort', onOuterAbort);
   }
 }
 
 // ហៅម្តង + បន្តបើ Gemini ប្រាប់ថា "requires_continuation" (ចម្លើយវែង)
-async function interact(apiKey, body, timeoutMs) {
-  const hops = [await post(apiKey, body, timeoutMs)];
+async function interact(apiKey, body, timeoutMs, signal) {
+  const hops = [await post(apiKey, body, timeoutMs, signal)];
   for (let i = 0; i < 3; i++) {
     const last = hops[hops.length - 1];
     const token = last && last.status === 'requires_continuation' && last.continuation_token;
     if (!token) break;
-    hops.push(await post(apiKey, { ...body, continuation_token: token }, timeoutMs));
+    hops.push(await post(apiKey, { ...body, continuation_token: token }, timeoutMs, signal));
   }
   const final = hops[hops.length - 1];
   if (final.status === 'failed') {
@@ -109,30 +129,84 @@ async function interact(apiKey, body, timeoutMs) {
   return { ...final, steps };
 }
 
-// សាកម៉ូដែលម្តងមួយៗ រហូតដល់ជោគជ័យ
-async function withModels(apiKey, primary, fallbacks, body, { simplify, timeoutMs = 45000 } = {}) {
-  let lastError = null;
-  for (const model of modelChain(primary, fallbacks)) {
-    const attempt = { ...body, model };
+// សាកម៉ូដែលមួយ៖ បើវាមិនទទួល thinking_level ដែលផ្ញើ សាកម្តងទៀតជាមួយ "low" ហើយបើនៅតែមិនបាន ផ្ញើដោយគ្មានជម្រើសបន្ថែម
+async function tryModel(apiKey, model, buildBody, timeoutMs, signal) {
+  let level = thinkingFor.get(model) || 'minimal';
+  for (;;) {
     try {
-      return { result: await interact(apiKey, attempt, timeoutMs), model };
+      return await interact(apiKey, buildBody(model, level), timeoutMs, signal);
     } catch (err) {
-      let e = err;
-      if (!(e instanceof GeminiError)) throw e;
-      if (e.kind === 'badrequest' && simplify) {
-        // សាកម្តងទៀតដោយគ្មានជម្រើសបន្ថែម (ម៉ូដែលខ្លះមិនស្គាល់)
-        try { return { result: await interact(apiKey, simplify(attempt), timeoutMs), model }; }
-        catch (e2) { if (!(e2 instanceof GeminiError)) throw e2; e = e2; }
+      if (!(err instanceof GeminiError) || err.kind !== 'badrequest' || level === null) throw err;
+      if (/thinking/i.test(err.message) && level !== 'low') {
+        level = 'low';
+        thinkingFor.set(model, 'low');
+      } else {
+        level = null;
       }
-      if (e.kind === 'quota') cooldownUntil.set(model, Date.now() + (e.daily ? 3 * 3600e3 : 60e3));
-      if (e.kind === 'quota' || e.kind === 'model' || e.kind === 'badrequest' || (e.kind === 'server' && e.status >= 500)) {
-        lastError = e;
-        continue;
-      }
-      throw e; // key ខុស, គ្មានអ៊ីនធឺណិត ... — ឈប់ភ្លាម
     }
   }
-  throw lastError || new GeminiError('server', 'No model available');
+}
+
+function moreUseful(a, b) {
+  if (!a) return b;
+  const rank = { quota: 4, model: 3, badrequest: 2, server: 1, timeout: 1, parse: 1 };
+  return (rank[b.kind] || 0) >= (rank[a.kind] || 0) ? b : a;
+}
+
+// សាកម៉ូដែលជាបន្តបន្ទាប់ ហើយបើយឺត ចាប់ផ្តើមម៉ូដែលបន្ទាប់ស្របគ្នា — យកចម្លើយដែលជោគជ័យមុនគេ
+function runHedged(kind, apiKey, models, buildBody, { hedgeMs, timeoutMs, accept }) {
+  return new Promise((resolve, reject) => {
+    const outer = new AbortController();
+    let next = 0;
+    let running = 0;
+    let done = false;
+    let lastError = null;
+    let hedgeTimer = null;
+
+    const finish = (ok, value) => {
+      if (done) return;
+      done = true;
+      clearTimeout(hedgeTimer);
+      outer.abort(); // បញ្ឈប់ការហៅផ្សេងទៀតដែលនៅរង់ចាំ
+      ok ? resolve(value) : reject(value);
+    };
+    const armHedge = () => {
+      clearTimeout(hedgeTimer);
+      if (next < models.length) hedgeTimer = setTimeout(() => { if (running < MAX_PARALLEL) launch(); }, hedgeMs);
+    };
+    const launch = () => {
+      if (done || next >= models.length) return;
+      const model = models[next++];
+      running += 1;
+      armHedge();
+      tryModel(apiKey, model, buildBody, timeoutMs, outer.signal).then((result) => {
+        running -= 1;
+        if (done) return;
+        let value;
+        try { value = accept(result, model); } catch (err) { onFail(model, err); return; }
+        lastGood[kind] = model;
+        cooldownUntil.delete(model);
+        finish(true, value);
+      }, (err) => {
+        running -= 1;
+        onFail(model, err);
+      });
+    };
+    const onFail = (model, err) => {
+      if (done) return;
+      if (!(err instanceof GeminiError)) { finish(false, err); return; }
+      if (err.kind === 'aborted') return;
+      if (FATAL.has(err.kind)) { finish(false, err); return; }
+      if (err.kind === 'quota') cooldownUntil.set(model, Date.now() + (err.daily ? 3 * 3600e3 : 60e3));
+      else if (err.kind === 'model') cooldownUntil.set(model, Date.now() + 24 * 3600e3);
+      else cooldownUntil.set(model, Date.now() + 90e3);
+      if (lastGood[kind] === model) lastGood[kind] = null;
+      lastError = moreUseful(lastError, err);
+      if (next < models.length) launch();
+      else if (running === 0) finish(false, lastError || new GeminiError('server', 'No model available'));
+    };
+    launch();
+  });
 }
 
 // យកលទ្ធផល (អត្ថបទ ឬសំឡេង) ពីចម្លើយ — តាមរបៀបដូច SDK ផ្លូវការ
@@ -224,59 +298,67 @@ function textTask(from, text) {
   ].join('\n');
 }
 
-function dropExtras(body) {
-  const copy = { ...body };
-  delete copy.store;
-  delete copy.generation_config;
-  return copy;
-}
-
 /**
  * បកប្រែសំឡេង (audioBase64) ឬអក្សរ (text)
  * from: 'km' | 'zh' — ប៊ូតុងដែលបានចុច
  * ត្រឡប់៖ { spoken, heard, translation, pinyin, model }
  */
-export async function translate({ apiKey, model, from, audioBase64, text, settings }) {
+export function translate({ apiKey, model, from, audioBase64, text, settings }) {
+  const system = systemPrompt(settings);
   const input = [{ type: 'text', text: audioBase64 ? audioTask(from) : textTask(from, text) }];
   if (audioBase64) input.push({ type: 'audio', data: audioBase64, mime_type: 'audio/wav' });
-  const body = {
-    model,
-    system_instruction: systemPrompt(settings),
-    input,
-    generation_config: { thinking_level: 'minimal' },
-    response_format: { type: 'text', mime_type: 'application/json', schema: SCHEMA },
-    store: false, // កុំឲ្យ Google រក្សាទុកសន្ទនានេះ
+  const buildBody = (m, thinking) => {
+    const body = {
+      model: m,
+      system_instruction: system,
+      input,
+      response_format: { type: 'text', mime_type: 'application/json', schema: SCHEMA },
+    };
+    if (thinking) {
+      body.generation_config = { thinking_level: thinking };
+      body.store = false; // កុំឲ្យ Google រក្សាទុកសន្ទនានេះ
+    }
+    return body;
   };
-  const { result, model: used } = await withModels(apiKey, model, TRANSLATE_MODELS, body, { simplify: dropExtras, timeoutMs: 45000 });
-  const data = parseJson(outputText(result));
-  if (!data || typeof data !== 'object') throw new GeminiError('parse', 'Could not read the answer', { model: used });
-  const clean = (v) => (typeof v === 'string' ? v.trim() : '');
-  let spoken = clean(data.spoken).toLowerCase();
-  if (!['km', 'zh', 'other', 'none'].includes(spoken)) spoken = clean(data.heard) ? from : 'none';
-  return {
-    spoken,
-    heard: clean(data.heard),
-    translation: clean(data.translation),
-    pinyin: clean(data.pinyin),
-    model: used,
+  const accept = (result, used) => {
+    const data = parseJson(outputText(result));
+    if (!data || typeof data !== 'object') throw new GeminiError('parse', 'Could not read the answer', { model: used });
+    const clean = (v) => (typeof v === 'string' ? v.trim() : '');
+    let spoken = clean(data.spoken).toLowerCase();
+    if (!['km', 'zh', 'other', 'none'].includes(spoken)) spoken = clean(data.heard) ? from : 'none';
+    return { spoken, heard: clean(data.heard), translation: clean(data.translation), pinyin: clean(data.pinyin), model: used };
   };
+  return runHedged('translate', apiKey, orderModels('translate', model, TRANSLATE_MODELS), buildBody, {
+    hedgeMs: audioBase64 ? 5000 : 4000,
+    timeoutMs: 25000,
+    accept,
+  });
 }
 
 /**
  * បង្កើតសំឡេងអាន
  * ត្រឡប់៖ { data (base64), mimeType, sampleRate, model }
  */
-export async function synthesize({ apiKey, model, text, voice }) {
-  const body = {
-    model,
-    input: [{ type: 'text', text }],
-    response_format: { type: 'audio', mime_type: 'audio/wav' },
-    generation_config: { speech_config: [{ voice: voice || 'Kore' }] },
-    store: false,
+export function synthesize({ apiKey, model, text, voice }) {
+  const buildBody = (m, thinking) => {
+    const body = {
+      model: m,
+      input: [{ type: 'text', text }],
+      response_format: { type: 'audio', mime_type: 'audio/wav' },
+      generation_config: { speech_config: [{ voice: voice || 'Kore' }] },
+      store: false,
+    };
+    if (thinking === null) { delete body.store; body.response_format = { type: 'audio' }; }
+    return body;
   };
-  const simplify = (b) => { const c = { ...b }; delete c.store; c.response_format = { type: 'audio' }; return c; };
-  const { result, model: used } = await withModels(apiKey, model, TTS_MODELS, body, { simplify, timeoutMs: 60000 });
-  const audio = outputAudio(result);
-  if (!audio) throw new GeminiError('noaudio', 'No audio in the answer', { model: used });
-  return { data: audio.data, mimeType: audio.mime_type || 'audio/wav', sampleRate: audio.sample_rate || 24000, model: used };
+  const accept = (result, used) => {
+    const audio = outputAudio(result);
+    if (!audio) throw new GeminiError('noaudio', 'No audio in the answer', { model: used });
+    return { data: audio.data, mimeType: audio.mime_type || 'audio/wav', sampleRate: audio.sample_rate || 24000, model: used };
+  };
+  return runHedged('tts', apiKey, orderModels('tts', model, TTS_MODELS), buildBody, {
+    hedgeMs: 6000,
+    timeoutMs: 35000,
+    accept,
+  });
 }

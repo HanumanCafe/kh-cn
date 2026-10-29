@@ -567,6 +567,7 @@ function sendTyped() {
 const F = {
   key: $('#set-key'),
   keyShow: $('#btn-key-show'),
+  keyPaste: $('#btn-key-paste'),
   keyTest: $('#btn-key-test'),
   keyResult: $('#key-result'),
   autospeak: $('#set-autospeak'),
@@ -646,6 +647,7 @@ function bindSettings() {
     F.key.type = show ? 'text' : 'password';
     F.keyShow.textContent = show ? 'លាក់' : 'បង្ហាញ';
   });
+  F.keyPaste.addEventListener('click', pasteKey);
   F.keyTest.addEventListener('click', testKey);
   F.autospeak.addEventListener('change', () => update({ autoSpeak: F.autospeak.checked }));
   F.kmVoice.addEventListener('change', () => update({ kmVoice: F.kmVoice.value }, { clearAudio: true }));
@@ -685,6 +687,21 @@ function bindSettings() {
     F.clear.classList.remove('is-armed');
     $('span', F.clear).textContent = 'លុបប្រវត្តិទាំងអស់';
   }
+}
+
+// បិទភ្ជាប់ key ពី clipboard ហើយសាកល្បងភ្លាម
+async function pasteKey() {
+  let text = '';
+  try { text = (await navigator.clipboard.readText()) || ''; } catch { text = ''; }
+  text = text.replace(/^[\s`'"]+|[\s`'"]+$/g, '');
+  if (!text) {
+    F.key.focus();
+    toast('ចុចឲ្យយូរលើប្រអប់ key ហើយជ្រើស Paste');
+    return;
+  }
+  F.key.value = text;
+  update({ apiKey: text });
+  testKey();
 }
 
 async function testKey() {
