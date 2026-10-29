@@ -122,8 +122,8 @@ function errorText(err) {
       case 'quota': return 'ប្រើលើសកំណត់ឥតគិតថ្លៃរបស់ Gemini ហើយ។ សូមរង់ចាំបន្តិច រួចសាកម្តងទៀត។';
       case 'busy': return 'Gemini រវល់ខ្លាំងនៅពេលនេះ។ សូមចុច «សាកម្តងទៀត» បន្តិចទៀត។';
       case 'model': return `រកមិនឃើញម៉ូដែល ${err.model}។ សូមប្តូរម៉ូដែលក្នុងការកំណត់។`;
-      case 'region': return 'Gemini មិនបម្រើទីតាំងដែលអ្នកកំពុងនៅទេ។';
-      case 'network': return 'គ្មានអ៊ីនធឺណិត។ សូមពិនិត្យការតភ្ជាប់ ហើយសាកម្តងទៀត។';
+      case 'region': return 'Gemini មិនបម្រើទីតាំងនេះទេ (ចិន ហុងកុង)។ សូមប្រើ roaming ស៊ីមខ្មែរ ឬ eSIM/VPN ដែលចេញតាមសិង្ហបុរី ឬកម្ពុជា។';
+      case 'network': return 'មិនអាចភ្ជាប់ទៅ Google Gemini បានទេ។ សូមពិនិត្យអ៊ីនធឺណិត។ បើនៅប្រទេសចិន ត្រូវប្រើ roaming ស៊ីមខ្មែរ ឬ eSIM/VPN។';
       case 'timeout': return 'អ៊ីនធឺណិតយឺតពេក។ សូមសាកម្តងទៀត។';
       case 'parse': return 'ចម្លើយពី Gemini មិនត្រឹមត្រូវ។ សូមសាកម្តងទៀត។';
       case 'noaudio': return 'Gemini មិនបានផ្ញើសំឡេងមកវិញទេ។';
