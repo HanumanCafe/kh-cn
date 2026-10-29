@@ -38,9 +38,30 @@ export class GeminiError extends Error {
 // ម៉ូដែលខ្លះមិនទទួល thinking_level "minimal" (កម្មវិធីរៀនបន្ថែមដោយខ្លួនឯង)
 const thinkingFor = new Map([['gemini-3.8-flash', 'low'], ['gemini-flash-latest', 'low']]);
 const cooldownUntil = new Map(); // ម៉ូដែលដែលទើបបដិសេធ — សាកក្រោយគេមួយរយៈ
-const lastGood = { translate: null, tts: null };
 const FATAL = new Set(['badkey', 'region', 'network']);
-const MAX_PARALLEL = 2;
+const MAX_PARALLEL = 3;
+const NEXT_HEDGE_MS = 3000;
+
+// ម៉ូដែលដែលដំណើរការចុងក្រោយ (ចងចាំក្នុងទូរសព្ទ ២ ម៉ោង) — សាកវាមុនគេពេលបើក App លើកក្រោយ
+const LAST_GOOD_KEY = 'khcn.lastgood.v1';
+const lastGood = (() => {
+  try {
+    const saved = JSON.parse(localStorage.getItem(LAST_GOOD_KEY) || '{}');
+    const fresh = (x) => (x && x.model && Date.now() - x.t < 2 * 3600e3 ? x.model : null);
+    return { translate: fresh(saved.translate), tts: fresh(saved.tts) };
+  } catch {
+    return { translate: null, tts: null };
+  }
+})();
+
+function rememberGood(kind, model) {
+  lastGood[kind] = model;
+  try {
+    const saved = JSON.parse(localStorage.getItem(LAST_GOOD_KEY) || '{}');
+    saved[kind] = model ? { model, t: Date.now() } : null;
+    localStorage.setItem(LAST_GOOD_KEY, JSON.stringify(saved));
+  } catch { /* រក្សាទុកមិនបាន — មិនអីទេ */ }
+}
 
 function orderModels(kind, primary, defaults) {
   const list = [lastGood[kind], primary, ...defaults].filter((m, i, a) => m && a.indexOf(m) === i);
@@ -61,6 +82,7 @@ function toError(status, data, model) {
   else if (status === 403 && /model/.test(text) && !/api key|api_key/.test(text)) kind = 'model';
   else if (status === 401 || status === 403 || (status === 400 && /api key|api_key/.test(text))) kind = 'badkey';
   else if (status === 400 || status === 422) kind = 'badrequest';
+  else if (status === 503 || /high demand|overloaded|service_unavailable/.test(text)) kind = 'busy';
   else kind = 'server';
   const e = new GeminiError(kind, message, { status, model });
   e.daily = /per ?day|perday|daily|rpd/.test(text);
@@ -149,7 +171,7 @@ async function tryModel(apiKey, model, buildBody, timeoutMs, signal) {
 
 function moreUseful(a, b) {
   if (!a) return b;
-  const rank = { quota: 4, model: 3, badrequest: 2, server: 1, timeout: 1, parse: 1 };
+  const rank = { quota: 5, busy: 4, model: 3, badrequest: 2, server: 1, timeout: 1, parse: 1 };
   return (rank[b.kind] || 0) >= (rank[a.kind] || 0) ? b : a;
 }
 
@@ -172,7 +194,11 @@ function runHedged(kind, apiKey, models, buildBody, { hedgeMs, timeoutMs, accept
     };
     const armHedge = () => {
       clearTimeout(hedgeTimer);
-      if (next < models.length) hedgeTimer = setTimeout(() => { if (running < MAX_PARALLEL) launch(); }, hedgeMs);
+      if (next >= models.length) return;
+      hedgeTimer = setTimeout(() => {
+        if (running < MAX_PARALLEL) launch();
+        else armHedge();
+      }, next === 1 ? hedgeMs : NEXT_HEDGE_MS);
     };
     const launch = () => {
       if (done || next >= models.length) return;
@@ -184,7 +210,7 @@ function runHedged(kind, apiKey, models, buildBody, { hedgeMs, timeoutMs, accept
         if (done) return;
         let value;
         try { value = accept(result, model); } catch (err) { onFail(model, err); return; }
-        lastGood[kind] = model;
+        if (lastGood[kind] !== model) rememberGood(kind, model);
         cooldownUntil.delete(model);
         finish(true, value);
       }, (err) => {
@@ -199,8 +225,9 @@ function runHedged(kind, apiKey, models, buildBody, { hedgeMs, timeoutMs, accept
       if (FATAL.has(err.kind)) { finish(false, err); return; }
       if (err.kind === 'quota') cooldownUntil.set(model, Date.now() + (err.daily ? 3 * 3600e3 : 60e3));
       else if (err.kind === 'model') cooldownUntil.set(model, Date.now() + 24 * 3600e3);
+      else if (err.kind === 'busy') cooldownUntil.set(model, Date.now() + 45e3);
       else cooldownUntil.set(model, Date.now() + 90e3);
-      if (lastGood[kind] === model) lastGood[kind] = null;
+      if (lastGood[kind] === model) rememberGood(kind, null);
       lastError = moreUseful(lastError, err);
       if (next < models.length) launch();
       else if (running === 0) finish(false, lastError || new GeminiError('server', 'No model available'));

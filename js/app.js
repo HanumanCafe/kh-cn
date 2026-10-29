@@ -120,6 +120,7 @@ function errorText(err) {
     switch (err.kind) {
       case 'badkey': return 'API key មិនត្រឹមត្រូវ ឬមិនទាន់ដំណើរការ។ សូមពិនិត្យ key ក្នុងការកំណត់។';
       case 'quota': return 'ប្រើលើសកំណត់ឥតគិតថ្លៃរបស់ Gemini ហើយ។ សូមរង់ចាំបន្តិច រួចសាកម្តងទៀត។';
+      case 'busy': return 'Gemini រវល់ខ្លាំងនៅពេលនេះ។ សូមចុច «សាកម្តងទៀត» បន្តិចទៀត។';
       case 'model': return `រកមិនឃើញម៉ូដែល ${err.model}។ សូមប្តូរម៉ូដែលក្នុងការកំណត់។`;
       case 'region': return 'Gemini មិនបម្រើទីតាំងដែលអ្នកកំពុងនៅទេ។';
       case 'network': return 'គ្មានអ៊ីនធឺណិត។ សូមពិនិត្យការតភ្ជាប់ ហើយសាកម្តងទៀត។';
@@ -369,6 +370,7 @@ async function speakMessage(msg, token = speakToken) {
   } catch (err) {
     if (err && err.name === 'NotAllowedError') toast('ចុចរូប 🔊 ដើម្បីស្តាប់។');
     else if (err instanceof GeminiError && err.kind === 'quota') toast('សំឡេងអានប្រើអស់កំណត់ឥតគិតថ្លៃសម្រាប់ពេលនេះ — សូមអានអក្សរជំនួស។', 5000);
+    else if (err instanceof GeminiError && err.kind === 'busy') toast('សំឡេងអាន Gemini រវល់ — សូមចុចរូប 🔊 ម្តងទៀតបន្តិចទៀត។', 5000);
     else if (err instanceof GeminiError) toast(errorText(err), 5000);
     else if (token === speakToken) toast('មិនអាចចាក់សំឡេងបានទេ។');
   } finally {
@@ -717,8 +719,13 @@ async function testKey() {
     F.keyResult.classList.add('ok');
     render();
   } catch (err) {
-    F.keyResult.textContent = errorText(err);
-    F.keyResult.classList.add('bad');
+    if (err instanceof GeminiError && err.kind === 'busy') {
+      F.keyResult.textContent = 'Key ត្រឹមត្រូវ ប៉ុន្តែ Gemini កំពុងរវល់ខ្លាំង។ សូមសាកម្តងទៀតបន្តិចទៀត។';
+    } else {
+      F.keyResult.textContent = errorText(err);
+      F.keyResult.classList.add('bad');
+    }
+    render();
   } finally {
     F.keyTest.disabled = false;
   }
