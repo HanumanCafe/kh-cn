@@ -2,7 +2,7 @@
 // (ការបកប្រែនៅតែត្រូវការអ៊ីនធឺណិត)
 // ពេលកែកូដ សូមប្តូរលេខ CACHE (ឧ. v2) ដើម្បីឲ្យទូរសព្ទយកកំណែថ្មី។
 
-const CACHE = 'khcn-v1';
+const CACHE = 'khcn-v2';
 const FILES = [
   './',
   './index.html',

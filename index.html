@@ -120,13 +120,14 @@
           <p class="help">កម្មវិធីនេះប្រើ Gemini របស់ Google ដើម្បីស្តាប់ បកប្រែ និងអានភាសាខ្មែរ។ យក key ឥតគិតថ្លៃនៅ
             <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">aistudio.google.com/apikey</a> ហើយបិទភ្ជាប់នៅទីនេះ។ Key រក្សាទុកតែក្នុងទូរសព្ទនេះប៉ុណ្ណោះ។</p>
           <div class="key-row">
-            <input id="set-key" type="password" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="AIza…" inputmode="text">
+            <input id="set-key" type="password" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="បិទភ្ជាប់ key នៅទីនេះ" inputmode="text">
             <button class="btn" id="btn-key-show" type="button">បង្ហាញ</button>
           </div>
           <div class="key-row">
-            <button class="btn btn-primary" id="btn-key-test" type="button">សាកល្បង key</button>
-            <p class="key-result" id="key-result" role="status"></p>
+            <button class="btn btn-primary" id="btn-key-paste" type="button">បិទភ្ជាប់ key</button>
+            <button class="btn" id="btn-key-test" type="button">សាកល្បង key</button>
           </div>
+          <p class="key-result" id="key-result" role="status"></p>
         </section>
 
         <section class="group">
@@ -169,8 +170,9 @@
           <h3>ម៉ូដែល Gemini</h3>
           <label class="row"><span>ស្តាប់ និងបកប្រែ</span>
             <select id="set-model">
-              <option value="gemini-3.8-flash">gemini-3.8-flash (ល្អបំផុត)</option>
-              <option value="gemini-3.5-flash-lite">gemini-3.5-flash-lite (លឿនជាង)</option>
+              <option value="gemini-3.6-flash">gemini-3.6-flash (លឿន ណែនាំ)</option>
+              <option value="gemini-3.8-flash">gemini-3.8-flash (ឆ្លាតបំផុត)</option>
+              <option value="gemini-3.5-flash-lite">gemini-3.5-flash-lite</option>
               <option value="gemini-3.1-flash-lite">gemini-3.1-flash-lite</option>
               <option value="gemini-flash-latest">gemini-flash-latest</option>
             </select>
@@ -182,7 +184,7 @@
               <option value="gemini-3.1-flash-tts-preview">gemini-3.1-flash-tts-preview</option>
             </select>
           </label>
-          <p class="help">បើម៉ូដែលមួយប្រើអស់កំណត់ឥតគិតថ្លៃ កម្មវិធីនឹងប្តូរទៅម៉ូដែលផ្សេងដោយខ្លួនឯង។</p>
+          <p class="help">បើម៉ូដែលមួយរវល់ យឺត ឬប្រើអស់កំណត់ឥតគិតថ្លៃ កម្មវិធីនឹងប្តូរទៅម៉ូដែលផ្សេងដោយខ្លួនឯង។</p>
         </section>
 
         <section class="group">
