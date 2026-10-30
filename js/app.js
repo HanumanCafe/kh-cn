@@ -6,7 +6,8 @@ import { Recorder } from './recorder.js';
 import { translate, synthesize, warmUp, VOICES, GeminiError } from './gemini.js';
 import { unlockAudio, stopAll, playUrl, audioToUrl, speakDevice, deviceVoiceFor } from './speaker.js';
 
-const VERSION = '1.0.0';
+const VERSION = '1.1.0';
+const WAVE_BARS = 22;
 
 const $ = (sel, root = document) => root.querySelector(sel);
 const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
@@ -152,21 +153,36 @@ function render(scrollToEnd = false) {
 function renderChat(scrollToEnd) {
   const el = els.chat;
   const nearEnd = el.scrollHeight - el.scrollTop - el.clientHeight < 120;
-  const items = state.messages.length ? state.messages.map(chatBubble) : [emptyState()];
+  const last = state.messages.length - 1;
+  const items = state.messages.length
+    ? state.messages.map((m, i) => chatBubble(m, i === last))
+    : [emptyState()];
   el.replaceChildren(...items);
   if (scrollToEnd || nearEnd) el.scrollTop = el.scrollHeight;
 }
 
 function emptyState() {
   const box = h('div', { class: 'empty' },
-    h('div', { class: 'empty-mark', 'aria-hidden': 'true' },
-      h('span', { class: 'k' }, 'ខ'), h('span', { class: 's' }, '⇄'), h('span', { class: 'z', lang: 'zh-CN' }, '中')),
-    h('p', { class: 'empty-km' }, 'ចុច «ខ» ហើយនិយាយខ្មែរ។ កម្មវិធីនឹងបកប្រែជាភាសាចិន ហើយអានឲ្យឮ។'),
-    h('p', { lang: 'zh-CN' }, '按「中」说中文，会翻译成高棉语并读出来。'),
+    h('div', { class: 'hero-mark', 'aria-hidden': 'true' },
+      h('span', { class: 'k' }, 'ខ'), h('span', { class: 'z', lang: 'zh-CN' }, '中')),
+    h('h2', { class: 'hero-title' }, 'និយាយភាសាខ្លួនឯង', h('br'), 'យល់គ្នាភ្លាមៗ'),
+    h('p', { class: 'hero-sub', lang: 'zh-CN' }, '各说各的语言，马上就能沟通'),
   );
   if (!state.settings.apiKey) {
-    box.append(h('button', { class: 'btn btn-primary', type: 'button', 'data-action': 'open-settings' }, 'ដាក់ Gemini API key'));
+    const card = h('div', { class: 'setup-card' },
+      h('div', { class: 'setup-step' }, h('span', { class: 'setup-num' }, '1'),
+        h('div', {}, h('b', {}, 'ដាក់ Gemini API key'), h('p', {}, 'ចម្លង key រួចចុច «បិទភ្ជាប់ key» ក្នុងការកំណត់។ ធ្វើតែម្តងគត់។'))));
+    if (isIOS() && !isStandalone()) {
+      card.append(h('div', { class: 'setup-step' }, h('span', { class: 'setup-num' }, '2'),
+        h('div', {}, h('b', {}, 'ដំឡើងជា App'), h('p', {}, 'ក្នុង Safari ចុច Share រួចជ្រើស «Add to Home Screen»។'))));
+    }
+    card.append(h('button', { class: 'btn btn-primary', type: 'button', 'data-action': 'open-settings' }, icon('i-paste'), 'ដាក់ API key'));
+    box.append(card);
+    return box;
   }
+  box.append(h('div', { class: 'howto' },
+    h('div', { class: 'howto-row' }, h('span', { class: 'g k', 'aria-hidden': 'true' }, 'ខ'), h('span', {}, 'ចុច ហើយនិយាយខ្មែរ។ កម្មវិធីបកប្រែជាចិន ហើយអានឲ្យឮ។')),
+    h('div', { class: 'howto-row', lang: 'zh-CN' }, h('span', { class: 'g z', 'aria-hidden': 'true' }, '中'), h('span', {}, '按下说中文，会翻译成高棉语并读出来'))));
   if (isIOS() && !isStandalone()) {
     box.append(h('div', { class: 'tip' }, icon('i-share'),
       h('span', {}, 'ដំឡើងជា App៖ ក្នុង Safari ចុចប៊ូតុង Share រួចជ្រើស «Add to Home Screen»។')));
@@ -174,33 +190,42 @@ function emptyState() {
   return box;
 }
 
-function chatBubble(m) {
+function chatBubble(m, isLatest) {
   const to = other(m.from);
   const classes = ['msg', `msg-${m.from}`];
+  if (isLatest) classes.push('is-latest');
   if (m.status === 'pending') classes.push('is-pending');
   if (m.status === 'error') classes.push('is-error');
   if (state.speakingId === m.id) classes.push('is-speaking');
   if (state.loadingAudioId === m.id) classes.push('is-loading-audio');
-  const art = h('article', { class: classes.join(' '), 'data-id': m.id });
+  const art = h('article', { class: classes.join(' '), 'data-id': m.id },
+    h('span', { class: 'msg-avatar', 'aria-hidden': 'true', lang: m.from === 'zh' ? 'zh-CN' : 'km' }, m.from === 'km' ? 'ខ' : '中'));
+  const body = h('div', { class: 'msg-body' });
+  art.append(body);
   const pinyin = state.settings.showPinyin && m.pinyin ? h('p', { class: 'msg-pinyin', lang: 'zh-Latn-pinyin' }, m.pinyin) : null;
 
-  art.append(h('p', { class: 'msg-src', lang: langAttr(m.from) }, m.source || '…'));
-  if (pinyin && m.from === 'zh' && m.status === 'done') art.append(pinyin);
+  if (isLatest && m.status === 'done') {
+    body.append(h('p', { class: 'msg-chip' }, m.from === 'km' ? 'ខ្មែរ → 中文' : '中文 → ខ្មែរ'));
+  }
+  body.append(h('p', { class: 'msg-src', lang: langAttr(m.from) }, m.source || '…'));
+  if (pinyin && m.from === 'zh' && m.status === 'done') body.append(pinyin);
 
   if (m.status === 'pending') {
-    art.append(h('p', { class: 'msg-dst' }, m.from === 'km' ? 'កំពុងបកប្រែ' : '正在翻译', dots()));
+    body.append(
+      h('div', { class: 'skeleton', 'aria-hidden': 'true' }, h('i'), h('i')),
+      h('p', { class: 'msg-dst' }, m.from === 'km' ? 'កំពុងបកប្រែ' : '正在翻译', dots()));
     return art;
   }
   if (m.status === 'error') {
-    art.append(h('p', { class: 'msg-dst', role: 'alert' }, m.error));
-    art.append(h('div', { class: 'msg-actions' },
+    body.append(h('p', { class: 'msg-dst', role: 'alert' }, m.error));
+    body.append(h('div', { class: 'msg-actions' },
       h('button', { type: 'button', 'data-action': 'retry' }, icon('i-retry'), 'សាកម្តងទៀត'),
       h('button', { type: 'button', 'data-action': 'delete', 'aria-label': 'លុបសារនេះ' }, icon('i-trash'))));
     return art;
   }
-  art.append(h('p', { class: 'msg-dst', lang: langAttr(to) }, m.target));
-  if (pinyin && m.from === 'km') art.append(pinyin);
-  art.append(h('div', { class: 'msg-actions' },
+  body.append(h('p', { class: 'msg-dst', lang: langAttr(to) }, m.target));
+  if (pinyin && m.from === 'km') body.append(pinyin);
+  body.append(h('div', { class: 'msg-actions' },
     h('button', { type: 'button', class: 'msg-play', 'data-action': 'play', 'aria-label': 'ស្តាប់ការបកប្រែ' }, icon('i-speaker')),
     h('button', { type: 'button', 'data-action': 'copy', 'aria-label': 'ចម្លងការបកប្រែ' }, icon('i-copy')),
     h('span', { class: 'msg-meta' }, clock(m.ts))));
@@ -228,7 +253,7 @@ function faceItem(m, lang) {
     return h('div', { class: mine ? 'fmsg fmsg-mine fmsg-wait' : 'fmsg fmsg-wait' }, mine && m.source ? m.source : '', dots());
   }
   if (m.status === 'error') {
-    return mine ? h('div', { class: 'fmsg fmsg-mine' }, lang === 'zh' ? '出错了，请再试一次。' : 'មានបញ្ហា — សូមនិយាយម្តងទៀត។') : null;
+    return mine ? h('div', { class: 'fmsg fmsg-mine' }, lang === 'zh' ? '出错了，请再试一次。' : 'មានបញ្ហា។ សូមនិយាយម្តងទៀត។') : null;
   }
   if (mine) return h('div', { class: 'fmsg fmsg-mine', lang: langAttr(lang) }, m.source);
   const cls = ['fmsg'];
@@ -382,21 +407,66 @@ async function speakMessage(msg, token = speakToken) {
 
 // ================= មីក្រូហ្វូន =================
 
+const levels = new Array(WAVE_BARS).fill(0); // កម្រិតសំឡេងថ្មីៗ សម្រាប់គូររលក
+let talkTimer = null;
+
 function setTalkState(lang, phase) {
   $$('.talk').forEach(btn => {
     const mine = lang && btn.dataset.lang === lang;
     const p = mine ? phase : 'idle';
     btn.dataset.state = p;
     btn.disabled = !!lang && !mine;
-    btn.style.setProperty('--level', '0');
     const hint = $('.talk-hint', btn);
     if (hint) hint.textContent = TALK_TEXT[btn.dataset.lang][p];
     btn.setAttribute('aria-pressed', p === 'listening' ? 'true' : 'false');
+    const wave = $('.wave', btn);
+    if (mine && wave && wave.childElementCount !== WAVE_BARS) {
+      wave.replaceChildren(...Array.from({ length: WAVE_BARS }, () => h('i')));
+    }
+  });
+
+  // ប៊ូតុងដែលកំពុងស្តាប់ពង្រីកធំ ហើយពន្លឺពណ៌នៅខាងក្រោយភ្លឺតាមសំឡេង
+  const root = document.documentElement;
+  if (lang) els.dock.dataset.active = lang;
+  else delete els.dock.dataset.active;
+  if (lang && phase === 'listening') root.dataset.listening = lang;
+  else delete root.dataset.listening;
+  root.style.setProperty('--level', '0');
+  levels.fill(0);
+  paintWave(lang);
+
+  clearInterval(talkTimer);
+  if (lang && phase === 'listening') {
+    const started = Date.now();
+    const tick = () => {
+      const s = Math.floor((Date.now() - started) / 1000);
+      const text = `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+      $$(`.talk[data-lang="${lang}"] .talk-time`).forEach(t => { t.textContent = text; });
+    };
+    tick();
+    talkTimer = setInterval(tick, 500);
+  }
+}
+
+// គូររលកសំឡេង៖ កណ្តាល = សំឡេងថ្មីបំផុត, គែម = សំឡេងមុនៗ
+function paintWave(lang) {
+  if (!lang) return;
+  const half = (WAVE_BARS - 1) / 2;
+  $$(`.talk[data-lang="${lang}"] .wave`).forEach(wave => {
+    const bars = wave.children;
+    for (let i = 0; i < bars.length; i++) {
+      const d = Math.abs(i - half) / half;
+      const value = levels[WAVE_BARS - 1 - Math.round(d * (WAVE_BARS - 1))] || 0;
+      bars[i].style.transform = `scaleY(${(0.12 + value * 0.88 * (1 - d * 0.35)).toFixed(3)})`;
+    }
   });
 }
 
 function setLevel(lang, level) {
-  $$(`.talk[data-lang="${lang}"]`).forEach(btn => btn.style.setProperty('--level', level.toFixed(3)));
+  levels.push(level);
+  levels.shift();
+  document.documentElement.style.setProperty('--level', level.toFixed(3));
+  paintWave(lang);
 }
 
 async function onTalk(lang) {
@@ -579,7 +649,7 @@ const F = {
   zhVoice: $('#set-zhvoice'),
   zhVoiceRow: $('#row-zhvoice'),
   rate: $('#set-rate'),
-  zhScript: $('#set-zhscript'),
+  zhScript: $$('input[name="zhscript"]'),
   pinyin: $('#set-pinyin'),
   context: $('#set-context'),
   autostop: $('#set-autostop'),
@@ -607,7 +677,7 @@ function loadSettingsForm() {
   ensureOption(F.zhVoice, s.zhVoice);
   F.zhVoiceRow.hidden = s.zhEngine !== 'gemini';
   F.rate.value = String(s.rate);
-  F.zhScript.value = s.zhScript;
+  F.zhScript.forEach(r => { r.checked = r.value === s.zhScript; });
   F.pinyin.checked = s.showPinyin;
   F.context.value = s.context;
   F.autostop.checked = s.autoStop;
@@ -660,7 +730,7 @@ function bindSettings() {
   });
   F.zhVoice.addEventListener('change', () => update({ zhVoice: F.zhVoice.value }, { clearAudio: true }));
   F.rate.addEventListener('change', () => update({ rate: Number(F.rate.value) || 1 }));
-  F.zhScript.addEventListener('change', () => update({ zhScript: F.zhScript.value }, { rerender: true }));
+  F.zhScript.forEach(r => r.addEventListener('change', () => { if (r.checked) update({ zhScript: r.value }, { rerender: true }); }));
   F.pinyin.addEventListener('change', () => update({ showPinyin: F.pinyin.checked }, { rerender: true }));
   F.context.addEventListener('input', () => update({ context: F.context.value }));
   F.autostop.addEventListener('change', () => update({ autoStop: F.autostop.checked }));

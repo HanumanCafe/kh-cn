@@ -14,14 +14,14 @@ export const TRANSLATE_MODELS = ['gemini-3.6-flash', 'gemini-3.8-flash', 'gemini
 export const TTS_MODELS = ['gemini-3.8-flash-tts', 'gemini-3.8-flash-lite-tts', 'gemini-3.1-flash-tts-preview'];
 
 export const VOICES = [
-  { id: 'Kore', label: 'Kore — ស្រី ច្បាស់' },
-  { id: 'Aoede', label: 'Aoede — ស្រី ស្រាល' },
-  { id: 'Leda', label: 'Leda — ស្រី ក្មេង' },
-  { id: 'Sulafat', label: 'Sulafat — ស្រី កក់ក្តៅ' },
-  { id: 'Puck', label: 'Puck — ប្រុស រស់រវើក' },
-  { id: 'Charon', label: 'Charon — ប្រុស ស្ងប់' },
-  { id: 'Orus', label: 'Orus — ប្រុស មាំ' },
-  { id: 'Achird', label: 'Achird — ប្រុស រួសរាយ' },
+  { id: 'Kore', label: 'Kore (ស្រី ច្បាស់)' },
+  { id: 'Aoede', label: 'Aoede (ស្រី ស្រាល)' },
+  { id: 'Leda', label: 'Leda (ស្រី ក្មេង)' },
+  { id: 'Sulafat', label: 'Sulafat (ស្រី កក់ក្តៅ)' },
+  { id: 'Puck', label: 'Puck (ប្រុស រស់រវើក)' },
+  { id: 'Charon', label: 'Charon (ប្រុស ស្ងប់)' },
+  { id: 'Orus', label: 'Orus (ប្រុស មាំ)' },
+  { id: 'Achird', label: 'Achird (ប្រុស រួសរាយ)' },
 ];
 
 export class GeminiError extends Error {
