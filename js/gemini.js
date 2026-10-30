@@ -293,6 +293,14 @@ const GUESTS = ['zh', 'vi'];
 
 function pickGuest(guest) { return GUESTS.includes(guest) ? guest : 'zh'; }
 
+// ភាសាតាមអក្សរដែល Gemini សរសេរ (ជឿជាក់ជាងស្លាក "spoken" ដែលពេលខ្លះខុស)
+function scriptLang(text) {
+  if (/[ក-៿]/.test(text)) return 'km';
+  if (/[㐀-鿿豈-﫿]/.test(text)) return 'zh';
+  if (/[ăâđêôơưĂÂĐÊÔƠƯẠ-ỹ]/.test(text)) return 'vi';
+  return null;
+}
+
 // Pinyin មានតែពេលភ្ញៀវនិយាយចិន
 function schemaFor(guest) {
   const properties = {
@@ -385,10 +393,13 @@ export function translate({ apiKey, model, from, guest, audioBase64, text, setti
     const data = parseJson(outputText(result));
     if (!data || typeof data !== 'object') throw new GeminiError('parse', 'Could not read the answer', { model: used });
     const clean = (v) => (typeof v === 'string' ? v.trim() : '');
+    const heard = clean(data.heard);
     let spoken = clean(data.spoken).toLowerCase();
-    if (!['km', pair, 'other', 'none'].includes(spoken)) spoken = clean(data.heard) ? speaker : 'none';
+    if (!['km', pair, 'other', 'none'].includes(spoken)) spoken = heard ? speaker : 'none';
+    const seen = scriptLang(heard);
+    if (spoken !== 'none' && (seen === 'km' || seen === pair)) spoken = seen;
     const pinyin = pair === 'zh' ? clean(data.pinyin) : '';
-    return { spoken, heard: clean(data.heard), translation: clean(data.translation), pinyin, model: used };
+    return { spoken, heard, translation: clean(data.translation), pinyin, model: used };
   };
   // ចាប់ផ្តើមម៉ូដែលពីរព្រមគ្នា ហើយបន្ថែមទីបីបើទាំងពីរយឺតជាង ២.៥ វិនាទី
   return runHedged('translate', apiKey, orderModels('translate', model, TRANSLATE_MODELS), buildBody, {
