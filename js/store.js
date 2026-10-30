@@ -54,10 +54,20 @@ export function loadHistory() {
   }
 }
 
+const MAX_PHOTO_THUMBS = 30; // រក្សារូបតូចតែ ៣០ រូបចុងក្រោយ (កុំឲ្យពេញអង្គចងចាំ)
+
 export function saveHistory(messages) {
-  const done = messages
-    .filter(m => m.status === 'done')
-    .slice(-MAX_HISTORY)
-    .map(({ id, from, source, target, pinyin, ts, via, status }) => ({ id, from, source, target, pinyin, ts, via, status }));
-  return write(HISTORY_KEY, JSON.stringify(done));
+  const done = messages.filter(m => m.status === 'done').slice(-MAX_HISTORY);
+  let thumbs = 0;
+  const out = [];
+  for (let i = done.length - 1; i >= 0; i--) {
+    const { id, from, source, target, pinyin, ts, via, status, kind, lines, note, lang } = done[i];
+    const item = { id, from, source, target, pinyin, ts, via, status };
+    if (kind === 'photo') {
+      Object.assign(item, { kind, lines, note, lang, thumb: '' });
+      if (done[i].thumb && thumbs < MAX_PHOTO_THUMBS) { item.thumb = done[i].thumb; thumbs += 1; }
+    }
+    out.unshift(item);
+  }
+  return write(HISTORY_KEY, JSON.stringify(out));
 }

@@ -376,6 +376,83 @@ export function translate({ apiKey, model, from, audioBase64, text, settings }) 
   });
 }
 
+// ---------- បកប្រែអក្សរក្នុងរូបថត ----------
+
+const IMAGE_SCHEMA = {
+  type: 'object',
+  properties: {
+    lang: { type: 'string', enum: ['zh', 'km', 'other', 'none'] },
+    lines: {
+      type: 'array',
+      maxItems: 80,
+      items: {
+        type: 'object',
+        properties: { source: { type: 'string' }, translation: { type: 'string' }, pinyin: { type: 'string' } },
+        required: ['source', 'translation', 'pinyin'],
+      },
+    },
+    note: { type: 'string' },
+  },
+  required: ['lang', 'lines', 'note'],
+};
+
+function imageTask(zhScript) {
+  const script = zhScript === 'traditional' ? 'Traditional' : 'Simplified';
+  return [
+    'Read all the text in this photo (signs, menus, labels, price tags, receipts, screenshots, handwriting).',
+    `- If the text is Chinese, translate it into Khmer. If it is Khmer, translate it into Mandarin Chinese (${script} characters). Text in any other language: translate it into Khmer.`,
+    '- Keep the reading order. Put words that belong together on one line (for example a product with its price).',
+    '- Keep numbers, prices, sizes and units exactly as written, using Western digits and the currency sign (for example ¥25/件 becomes ¥25/ដុំ).',
+    '- "lang": the main language of the text: "zh", "km", "other", or "none" if there is no readable text.',
+    '- "lines": every line with "source" (the original text), "translation", and "pinyin" (Hanyu Pinyin with tone marks for the Chinese side of that line, empty if there is no Chinese).',
+    '- "note": one short Khmer sentence saying what this is (for example "តារាងតម្លៃសម្លៀកបំពាក់លក់ដុំ"). If there is no text, describe the photo briefly in Khmer.',
+    'Return only the JSON object.',
+  ].join('\n');
+}
+
+/**
+ * អានអក្សរក្នុងរូប ហើយបកប្រែ
+ * ត្រឡប់៖ { lang, lines: [{ source, translation, pinyin }], note, model }
+ */
+export function translateImage({ apiKey, model, imageBase64, mimeType = 'image/jpeg', settings }) {
+  const system = systemPrompt(settings);
+  const input = [
+    { type: 'text', text: imageTask(settings.zhScript) },
+    { type: 'image', data: imageBase64, mime_type: mimeType, resolution: 'high' },
+  ];
+  const buildBody = (m, thinking) => {
+    const body = {
+      model: m,
+      system_instruction: system,
+      input,
+      response_format: { type: 'text', mime_type: 'application/json', schema: IMAGE_SCHEMA },
+    };
+    if (thinking) {
+      body.generation_config = { thinking_level: thinking };
+      body.store = false;
+    }
+    return body;
+  };
+  const accept = (result, used) => {
+    const data = parseJson(outputText(result));
+    if (!data || typeof data !== 'object') throw new GeminiError('parse', 'Could not read the answer', { model: used });
+    const clean = (v) => (typeof v === 'string' ? v.trim() : '');
+    let lang = clean(data.lang).toLowerCase();
+    if (!['zh', 'km', 'other', 'none'].includes(lang)) lang = 'other';
+    const lines = (Array.isArray(data.lines) ? data.lines : [])
+      .map(l => ({ source: clean(l && l.source), translation: clean(l && l.translation), pinyin: clean(l && l.pinyin) }))
+      .filter(l => l.source || l.translation)
+      .slice(0, 80);
+    return { lang, lines, note: clean(data.note), model: used };
+  };
+  return runHedged('translate', apiKey, orderModels('translate', model, TRANSLATE_MODELS), buildBody, {
+    startParallel: 2,
+    hedgeMs: 4000,
+    timeoutMs: 45000,
+    accept,
+  });
+}
+
 /**
  * បង្កើតសំឡេងអាន
  * ត្រឡប់៖ { data (base64), mimeType, sampleRate, model }

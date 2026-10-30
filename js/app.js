@@ -3,10 +3,10 @@
 
 import { loadSettings, saveSettings, loadHistory, saveHistory } from './store.js';
 import { Recorder } from './recorder.js';
-import { translate, synthesize, warmUp, VOICES, GeminiError } from './gemini.js';
+import { translate, translateImage, synthesize, warmUp, VOICES, GeminiError } from './gemini.js';
 import { unlockAudio, stopAll, playUrl, audioToUrl, speakDevice, deviceVoiceFor } from './speaker.js';
 
-const VERSION = '1.1.0';
+const VERSION = '1.2.0';
 const WAVE_BARS = 22;
 
 const $ = (sel, root = document) => root.querySelector(sel);
@@ -22,6 +22,7 @@ const state = {
 
 const audioCache = new Map();   // id សារ → blob URL សំឡេង Gemini (មិនបាច់ហៅម្តងទៀតពេលចុចស្តាប់)
 const pendingAudio = new Map(); // id សារ → WAV base64 (សម្រាប់ "សាកម្តងទៀត")
+const pendingImage = new Map(); // id សារ → JPEG base64 របស់រូបថត (សម្រាប់ "សាកម្តងទៀត")
 let speakToken = 0;
 let speakChain = Promise.resolve();
 
@@ -44,6 +45,7 @@ const els = {
   composerText: $('#composer-text'),
   composerDir: $('#composer-dir'),
   settings: $('#settings'),
+  photoInput: $('#photo-input'),
 };
 
 // ================= ជំនួយតូចៗ =================
@@ -155,7 +157,7 @@ function renderChat(scrollToEnd) {
   const nearEnd = el.scrollHeight - el.scrollTop - el.clientHeight < 120;
   const last = state.messages.length - 1;
   const items = state.messages.length
-    ? state.messages.map((m, i) => chatBubble(m, i === last))
+    ? state.messages.map((m, i) => (m.kind === 'photo' ? photoCard(m, i === last) : chatBubble(m, i === last)))
     : [emptyState()];
   el.replaceChildren(...items);
   if (scrollToEnd || nearEnd) el.scrollTop = el.scrollHeight;
@@ -182,7 +184,8 @@ function emptyState() {
   }
   box.append(h('div', { class: 'howto' },
     h('div', { class: 'howto-row' }, h('span', { class: 'g k', 'aria-hidden': 'true' }, 'ខ'), h('span', {}, 'ចុច ហើយនិយាយខ្មែរ។ កម្មវិធីបកប្រែជាចិន ហើយអានឲ្យឮ។')),
-    h('div', { class: 'howto-row', lang: 'zh-CN' }, h('span', { class: 'g z', 'aria-hidden': 'true' }, '中'), h('span', {}, '按下说中文，会翻译成高棉语并读出来'))));
+    h('div', { class: 'howto-row', lang: 'zh-CN' }, h('span', { class: 'g z', 'aria-hidden': 'true' }, '中'), h('span', {}, '按下说中文，会翻译成高棉语并读出来')),
+    h('div', { class: 'howto-row' }, h('span', { class: 'g c', 'aria-hidden': 'true' }, icon('i-camera')), h('span', {}, 'ថតរូប ស្លាកតម្លៃ ម៉ឺនុយ ឬផ្លាកសញ្ញា ដើម្បីបកប្រែអក្សរក្នុងរូប។'))));
   if (isIOS() && !isStandalone()) {
     box.append(h('div', { class: 'tip' }, icon('i-share'),
       h('span', {}, 'ដំឡើងជា App៖ ក្នុង Safari ចុចប៊ូតុង Share រួចជ្រើស «Add to Home Screen»។')));
@@ -232,6 +235,58 @@ function chatBubble(m, isLatest) {
   return art;
 }
 
+// កាតរូបថត៖ រូបតូច + បន្ទាត់អក្សរដើម និងការបកប្រែ
+function photoCard(m, isLatest) {
+  const classes = ['msg', 'msg-photo'];
+  if (isLatest) classes.push('is-latest');
+  if (m.status === 'pending') classes.push('is-pending');
+  if (m.status === 'error') classes.push('is-error');
+  if (state.speakingId === m.id) classes.push('is-speaking');
+  if (state.loadingAudioId === m.id) classes.push('is-loading-audio');
+  const body = h('div', { class: 'msg-body' });
+  const art = h('article', { class: classes.join(' '), 'data-id': m.id }, body);
+
+  let direction = '';
+  if (m.status === 'done') direction = m.lang === 'km' ? 'ខ្មែរ → 中文' : m.lang === 'zh' ? '中文 → ខ្មែរ' : '→ ខ្មែរ';
+  body.append(h('p', { class: 'msg-chip' }, icon('i-camera'), 'រូបថត', direction ? ` ${direction}` : ''));
+  if (m.thumb) {
+    body.append(h('button', { type: 'button', class: 'photo-thumb', 'data-action': 'zoom', 'aria-label': 'ពង្រីករូប' },
+      h('img', { src: m.thumb, alt: 'រូបថតដែលត្រូវបកប្រែ' })));
+  }
+
+  if (m.status === 'pending') {
+    body.append(
+      h('div', { class: 'skeleton', 'aria-hidden': 'true' }, h('i'), h('i')),
+      h('p', { class: 'msg-dst' }, 'កំពុងអានអក្សរក្នុងរូប', dots()));
+    return art;
+  }
+  if (m.status === 'error') {
+    body.append(h('p', { class: 'msg-dst', role: 'alert' }, m.error));
+    body.append(h('div', { class: 'msg-actions' },
+      h('button', { type: 'button', 'data-action': 'retry' }, icon('i-retry'), 'សាកម្តងទៀត'),
+      h('button', { type: 'button', 'data-action': 'delete', 'aria-label': 'លុបសារនេះ' }, icon('i-trash'))));
+    return art;
+  }
+
+  if (m.note) body.append(h('p', { class: 'photo-note' }, m.note));
+  const lines = Array.isArray(m.lines) ? m.lines : [];
+  if (lines.length) {
+    const srcLang = m.lang === 'km' ? 'km' : m.lang === 'zh' ? langAttr('zh') : null;
+    const dstLang = m.lang === 'km' ? langAttr('zh') : 'km';
+    body.append(h('ol', { class: 'photo-lines' }, lines.map(l => h('li', {},
+      h('p', { class: 'pl-src', lang: srcLang }, l.source),
+      h('p', { class: 'pl-dst', lang: dstLang }, l.translation),
+      state.settings.showPinyin && l.pinyin ? h('p', { class: 'msg-pinyin', lang: 'zh-Latn-pinyin' }, l.pinyin) : null))));
+  } else {
+    body.append(h('p', { class: 'photo-empty' }, 'រកមិនឃើញអក្សរក្នុងរូបនេះទេ។'));
+  }
+  body.append(h('div', { class: 'msg-actions' },
+    lines.length ? h('button', { type: 'button', class: 'msg-play', 'data-action': 'play', 'aria-label': 'ស្តាប់ការបកប្រែ' }, icon('i-speaker')) : null,
+    lines.length ? h('button', { type: 'button', 'data-action': 'copy', 'aria-label': 'ចម្លងការបកប្រែ' }, icon('i-copy')) : null,
+    h('span', { class: 'msg-meta' }, clock(m.ts))));
+  return art;
+}
+
 function renderFace() {
   renderPane(els.paneZh, 'zh');
   renderPane(els.paneKm, 'km');
@@ -249,6 +304,13 @@ function renderPane(el, lang) {
 
 function faceItem(m, lang) {
   const mine = m.from === lang;
+  if (m.kind === 'photo') {
+    if (m.status !== 'done' || !m.target) return null;
+    if (mine) return h('div', { class: 'fmsg fmsg-mine', lang: langAttr(lang) }, icon('i-camera'), ' ', m.source.split('\n')[0]);
+    return h('div', { class: `fmsg fmsg-photo${state.speakingId === m.id ? ' is-speaking' : ''}`, lang: langAttr(lang), 'data-id': m.id },
+      m.target,
+      h('button', { type: 'button', class: 'fmsg-play', 'data-action': 'play', 'aria-label': lang === 'zh' ? '播放' : 'ស្តាប់' }, icon('i-speaker')));
+  }
   if (m.status === 'pending') {
     return h('div', { class: mine ? 'fmsg fmsg-mine fmsg-wait' : 'fmsg fmsg-wait' }, mine && m.source ? m.source : '', dots());
   }
@@ -276,8 +338,8 @@ function newId() {
   return `m${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
 }
 
-function addMessage({ from, via, source = '' }) {
-  const msg = { id: newId(), from, requested: from, via, source, target: '', pinyin: '', ts: Date.now(), status: 'pending', error: '' };
+function addMessage({ from, via, source = '', ...extra }) {
+  const msg = { id: newId(), from, requested: from, via, source, target: '', pinyin: '', ts: Date.now(), status: 'pending', error: '', ...extra };
   state.messages.push(msg);
   render(true);
   return msg;
@@ -288,6 +350,7 @@ function findMessage(id) { return state.messages.find(m => m.id === id); }
 function removeMessage(id) {
   state.messages = state.messages.filter(m => m.id !== id);
   pendingAudio.delete(id);
+  pendingImage.delete(id);
   const url = audioCache.get(id);
   if (url) { URL.revokeObjectURL(url); audioCache.delete(id); }
   persist();
@@ -334,6 +397,98 @@ async function runTranslation(msg) {
   }
 }
 
+// ================= ថតរូបបកប្រែ =================
+
+// បើករូប (ទាំងរូបពី iPhone ដែលបង្វិល) ជារូបដែលគូរលើ canvas បាន
+async function loadImage(file) {
+  if ('createImageBitmap' in window) {
+    try { return await createImageBitmap(file, { imageOrientation: 'from-image' }); } catch { /* សាកវិធីខាងក្រោម */ }
+  }
+  const url = URL.createObjectURL(file);
+  try {
+    const img = new Image();
+    img.src = url;
+    await img.decode();
+    return img;
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+}
+
+// បង្រួមរូប ដើម្បីផ្ញើលឿន (ជ្រុងវែងបំផុត maxSide px)
+function toJpeg(source, maxSide, quality) {
+  const w = source.naturalWidth || source.width;
+  const hgt = source.naturalHeight || source.height;
+  const scale = Math.min(1, maxSide / Math.max(w, hgt));
+  const canvas = document.createElement('canvas');
+  canvas.width = Math.max(1, Math.round(w * scale));
+  canvas.height = Math.max(1, Math.round(hgt * scale));
+  const g = canvas.getContext('2d');
+  g.fillStyle = '#FFFFFF';
+  g.fillRect(0, 0, canvas.width, canvas.height);
+  g.drawImage(source, 0, 0, canvas.width, canvas.height);
+  return canvas.toDataURL('image/jpeg', quality);
+}
+
+function openPhotoPicker() {
+  unlockAudio();
+  cancelRecording();
+  if (!state.settings.apiKey) {
+    toast('សូមដាក់ Gemini API key ជាមុនសិន។');
+    openSettings(true);
+    return;
+  }
+  els.photoInput.value = '';
+  els.photoInput.click();
+}
+
+async function onPhotoChosen() {
+  const file = els.photoInput.files && els.photoInput.files[0];
+  if (!file) return;
+  stopSpeaking();
+  let full;
+  let thumb;
+  try {
+    const source = await loadImage(file);
+    full = toJpeg(source, 1600, 0.82);
+    thumb = toJpeg(source, 360, 0.7);
+    if (source.close) source.close();
+  } catch {
+    toast('មិនអាចបើករូបនេះបានទេ។ សូមសាករូបផ្សេង។');
+    return;
+  }
+  const msg = addMessage({ from: 'zh', via: 'photo', kind: 'photo', thumb, lines: [], note: '', lang: '' });
+  pendingImage.set(msg.id, full.slice(full.indexOf(',') + 1));
+  runPhoto(msg);
+}
+
+async function runPhoto(msg) {
+  const s = state.settings;
+  msg.status = 'pending';
+  msg.error = '';
+  render(true);
+  try {
+    const r = await translateImage({ apiKey: s.apiKey, model: s.model, imageBase64: pendingImage.get(msg.id), settings: s });
+    if (!findMessage(msg.id)) return;
+    msg.lang = r.lang;
+    msg.from = r.lang === 'km' ? 'km' : 'zh'; // ភាសាដើមនៃអក្សរក្នុងរូប
+    msg.lines = r.lines;
+    msg.note = r.note;
+    msg.source = r.lines.map(l => l.source).join('\n');
+    msg.target = r.lines.map(l => l.translation).join('\n');
+    msg.status = 'done';
+    pendingImage.delete(msg.id);
+    persist();
+    render(true);
+  } catch (err) {
+    if (!findMessage(msg.id)) return;
+    msg.status = 'error';
+    msg.error = errorText(err);
+    render(true);
+    if (err instanceof GeminiError && err.kind === 'badkey') toast(msg.error, 6000);
+  }
+}
+
 // ================= ការអានឲ្យឮ =================
 
 function useDeviceVoice(lang) {
@@ -364,7 +519,7 @@ function queueSpeak(msg) {
 async function speakMessage(msg, token = speakToken) {
   const s = state.settings;
   const lang = other(msg.from); // ភាសានៃការបកប្រែ
-  const text = msg.target;
+  const text = msg.target.length > 900 ? `${msg.target.slice(0, 900)}…` : msg.target; // រូបថតវែង៖ អានតែផ្នែកដើម
   if (!text) return;
   try {
     if (useDeviceVoice(lang)) {
@@ -571,12 +726,23 @@ function onMessageAction(e) {
   } else if (action === 'copy') {
     copyText(msg.target);
   } else if (action === 'retry') {
+    if (msg.kind === 'photo') {
+      if (!pendingImage.has(msg.id)) {
+        removeMessage(msg.id);
+        toast('សូមថតរូបម្តងទៀត។');
+        return;
+      }
+      runPhoto(msg);
+      return;
+    }
     if (msg.via === 'voice' && !pendingAudio.has(msg.id)) {
       removeMessage(msg.id);
       toast('សូមនិយាយម្តងទៀត។');
       return;
     }
     runTranslation(msg);
+  } else if (action === 'zoom') {
+    btn.classList.toggle('is-open');
   } else if (action === 'delete') {
     removeMessage(msg.id);
   }
@@ -807,6 +973,8 @@ async function testKey() {
 function init() {
   $$('.talk').forEach(btn => btn.addEventListener('click', () => onTalk(btn.dataset.lang)));
   $('#btn-type').addEventListener('click', openComposer);
+  $('#btn-photo').addEventListener('click', openPhotoPicker);
+  els.photoInput.addEventListener('change', onPhotoChosen);
   $('#btn-face').addEventListener('click', () => setView('face'));
   $('#btn-face-exit').addEventListener('click', () => setView('chat'));
   $('#btn-settings').addEventListener('click', () => openSettings(false));
