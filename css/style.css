@@ -341,6 +341,34 @@ html[data-listening="zh"] .glow-km { opacity: 0.35; }
 .msg.is-error .msg-actions button { color: var(--ink); }
 .msg.is-error [data-action="retry"] { background: var(--chip); }
 
+/* កាតរូបថត */
+.msg-photo { width: 100%; max-width: 100%; }
+.msg-photo .msg-body { flex: 1; border-radius: 24px; }
+.msg-photo .msg-chip { background: var(--chip); color: var(--ink-2); }
+.msg-photo .msg-chip svg { width: 15px; height: 15px; }
+.photo-thumb {
+  display: block;
+  width: 100%;
+  margin: 2px 0 10px;
+  padding: 0;
+  border: 0;
+  border-radius: 16px;
+  overflow: hidden;
+  background: var(--chip);
+}
+.photo-thumb img { display: block; width: 100%; max-height: 170px; object-fit: cover; object-position: center top; transition: max-height 0.3s var(--ease); }
+.photo-thumb.is-open img { max-height: 70vh; object-fit: contain; }
+.photo-note { margin: 0 0 6px; font-size: 14px; line-height: 1.6; color: var(--muted); }
+.photo-lines { list-style: none; margin: 0; padding: 0; }
+.photo-lines li { padding: 9px 0; border-top: 1px solid var(--hairline); }
+.photo-lines li:first-child { border-top: 0; padding-top: 2px; }
+.pl-src { font-size: 14px; line-height: 1.6; color: var(--zh-ink); }
+.pl-src:lang(km) { color: var(--km-ink); }
+.pl-dst { margin-top: 1px; font-size: 19px; font-weight: 500; line-height: 1.6; }
+.msg-photo.is-latest .pl-dst { font-size: 21px; }
+.photo-empty { margin: 4px 0 8px; color: var(--muted); }
+.fmsg-photo { white-space: pre-line; font-size: 21px; }
+
 @keyframes msg-in { from { opacity: 0; transform: translateY(14px) scale(0.98); } to { opacity: 1; transform: none; } }
 @keyframes dot { 0%, 80%, 100% { opacity: 0.25; transform: translateY(0); } 40% { opacity: 1; transform: translateY(-3px); } }
 @keyframes beat { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.18); } }
@@ -421,6 +449,8 @@ html[data-listening="zh"] .glow-km { opacity: 0.35; }
 }
 .howto-row .g.k { background: linear-gradient(150deg, var(--km-2), var(--km)); }
 .howto-row .g.z { background: linear-gradient(150deg, var(--zh-2), var(--zh)); font-family: var(--font-zh); font-weight: 600; }
+.howto-row .g.c { background: var(--chip); color: var(--ink); }
+.howto-row .g.c svg { width: 19px; height: 19px; }
 
 /* ---------- ប៊ូតុងនិយាយ ---------- */
 .dock {
@@ -507,19 +537,27 @@ html[data-listening="zh"] .glow-km { opacity: 0.35; }
 .dock[data-active] .talk[data-state="idle"] .talk-name { opacity: 0; }
 .dock[data-active] .talk[data-state="idle"] .talk-glyph { transform: scale(0.62) translateY(22px); }
 
-.kbd-btn {
+/* ប៊ូតុងកណ្តាល៖ ថតរូប និងវាយអក្សរ */
+.dock-mid {
   flex: 0 0 52px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  overflow: hidden;
+  transition: flex-basis 0.38s var(--ease), opacity 0.25s ease, margin 0.38s var(--ease);
+}
+.kbd-btn {
+  flex: 1;
   display: grid;
   place-items: center;
   border: 0;
-  border-radius: 22px;
+  border-radius: 18px;
   background: var(--chip);
   color: var(--ink);
-  overflow: hidden;
-  transition: flex-basis 0.38s var(--ease), opacity 0.25s ease, margin 0.38s var(--ease), transform 0.12s ease;
+  transition: transform 0.12s ease, background 0.15s ease;
 }
 .kbd-btn:active { transform: scale(0.94); background: var(--press); }
-.dock[data-active] .kbd-btn { flex-basis: 0; opacity: 0; margin: 0 -4px; pointer-events: none; }
+.dock[data-active] .dock-mid { flex-basis: 0; opacity: 0; margin: 0 -4px; pointer-events: none; }
 
 /* ---------- របៀបទល់មុខគ្នា ---------- */
 .face {
