@@ -1,6 +1,7 @@
 /* =========================================================
-   បកប្រែ ខ្មែរ ⇄ 中文 — រចនាប័ទ្ម (style) កំណែ ១.១
-   ពណ៌ពីរ = មនុស្សពីរនាក់៖ ខៀវ = អ្នកនិយាយខ្មែរ, ក្រហមផ្កាឈូក = អ្នកនិយាយចិន
+   បកប្រែ ខ្មែរ ⇄ 中文 / Tiếng Việt — រចនាប័ទ្ម (style) កំណែ ១.៣
+   ពណ៌មួយក្នុងមួយភាសា៖ ខៀវ = ខ្មែរ, ក្រហមផ្កាឈូក = ចិន, បៃតងខៀវ = វៀតណាម
+   ធាតុណាមាន data-lang="…" ទទួលពណ៌ភាសានោះតាម --c, --c-2, --c-ink, --c-tint, --c-glow, --c-shadow
    ផ្ទៃកញ្ចក់ (glass) សម្រាប់ប៊ូតុង និងផ្ទាំងបញ្ជា — អក្សរការបកប្រែធំ ងាយអាន
    ========================================================= */
 
@@ -52,6 +53,13 @@
   --zh-glow: rgba(255, 112, 88, 0.36);
   --zh-shadow: rgba(224, 69, 53, 0.32);
 
+  --vi: #0B8576;
+  --vi-2: #1FBF9F;
+  --vi-ink: #08665B;
+  --vi-tint: rgba(11, 133, 118, 0.1);
+  --vi-glow: rgba(31, 191, 159, 0.34);
+  --vi-shadow: rgba(11, 133, 118, 0.32);
+
   --danger: #C4271D;
   --ok: #1D7F48;
   --chev: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1.5 6 6.5l5-5' fill='none' stroke='%236A6F86' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
@@ -101,11 +109,23 @@
     --zh-glow: rgba(255, 90, 70, 0.28);
     --zh-shadow: rgba(170, 40, 25, 0.5);
 
+    --vi: #11998A;
+    --vi-2: #36D6B6;
+    --vi-ink: #8FEBD8;
+    --vi-tint: rgba(54, 214, 182, 0.15);
+    --vi-glow: rgba(30, 200, 170, 0.26);
+    --vi-shadow: rgba(4, 90, 78, 0.5);
+
     --danger: #FF8A80;
     --ok: #7CD69F;
     --chev: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1.5 6 6.5l5-5' fill='none' stroke='%239095AE' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
   }
 }
+
+/* ពណ៌តាមភាសា */
+[data-lang="km"] { --c: var(--km); --c-2: var(--km-2); --c-ink: var(--km-ink); --c-tint: var(--km-tint); --c-glow: var(--km-glow); --c-shadow: var(--km-shadow); }
+[data-lang="zh"] { --c: var(--zh); --c-2: var(--zh-2); --c-ink: var(--zh-ink); --c-tint: var(--zh-tint); --c-glow: var(--zh-glow); --c-shadow: var(--zh-shadow); }
+[data-lang="vi"] { --c: var(--vi); --c-2: var(--vi-2); --c-ink: var(--vi-ink); --c-tint: var(--vi-tint); --c-glow: var(--vi-glow); --c-shadow: var(--vi-shadow); }
 
 /* ---------- មូលដ្ឋាន ---------- */
 *, *::before, *::after { box-sizing: border-box; }
@@ -125,6 +145,8 @@ body {
   overflow: hidden;
 }
 :lang(zh), :lang(zh-CN), :lang(zh-TW) { font-family: var(--font-zh); }
+/* Kantumruy គ្មានអក្សរវៀតណាម (ệ ơ ư đ…) — ប្រើពុម្ពអក្សរ iPhone ដើម្បីកុំឲ្យលាយពុម្ពក្នុងពាក្យតែមួយ */
+:lang(vi) { font-family: var(--font-latin); }
 button, input, select, textarea { font: inherit; color: inherit; }
 button { cursor: pointer; -webkit-tap-highlight-color: transparent; touch-action: manipulation; }
 :focus-visible { outline: 3px solid var(--km-2); outline-offset: 2px; }
@@ -140,15 +162,16 @@ a { color: var(--km); }
   height: 115vmax;
   border-radius: 50%;
   opacity: 0.85;
+  background: radial-gradient(closest-side, var(--c-glow), transparent);
   transition: opacity 0.5s ease, transform 0.12s linear;
   will-change: transform;
 }
-.glow-km { left: -62vmax; top: -58vmax; background: radial-gradient(closest-side, var(--km-glow), transparent); }
-.glow-zh { right: -62vmax; bottom: -58vmax; background: radial-gradient(closest-side, var(--zh-glow), transparent); }
+.glow-km { left: -62vmax; top: -58vmax; }
+.glow-guest { right: -62vmax; bottom: -58vmax; }
 html[data-listening="km"] .glow-km,
-html[data-listening="zh"] .glow-zh { opacity: 1; transform: scale(calc(1.08 + var(--level) * 0.22)); }
-html[data-listening="km"] .glow-zh,
-html[data-listening="zh"] .glow-km { opacity: 0.35; }
+html[data-listening="guest"] .glow-guest { opacity: 1; transform: scale(calc(1.08 + var(--level) * 0.22)); }
+html[data-listening="km"] .glow-guest,
+html[data-listening="guest"] .glow-km { opacity: 0.35; }
 
 .app {
   position: relative;
@@ -186,8 +209,21 @@ html[data-listening="zh"] .glow-km { opacity: 0.35; }
   padding: 0 6px 0 9px;
   border-radius: 29px;
 }
-.brand { display: flex; align-items: center; gap: 10px; min-width: 0; }
-.brand-mark { display: flex; }
+/* ឈ្មោះកម្មវិធី = ប៊ូតុងប្តូរភាសាភ្ញៀវ */
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-width: 0;
+  padding: 4px 10px 4px 0;
+  border: 0;
+  border-radius: 24px;
+  background: transparent;
+  color: var(--ink);
+  transition: background 0.15s ease, transform 0.12s ease;
+}
+.brand:active { background: var(--press); transform: scale(0.98); }
+.brand-mark { display: flex; flex: none; }
 .brand-mark b {
   display: grid;
   place-items: center;
@@ -199,11 +235,17 @@ html[data-listening="zh"] .glow-km { opacity: 0.35; }
   font-weight: 700;
   line-height: 1;
   border: 2px solid var(--bg);
+  background: linear-gradient(150deg, var(--c-2), var(--c));
 }
-.brand-mark .k { background: linear-gradient(150deg, var(--km-2), var(--km)); z-index: 1; }
-.brand-mark .z { background: linear-gradient(150deg, var(--zh-2), var(--zh)); margin-left: -9px; font-family: var(--font-zh); font-weight: 600; font-size: 16px; }
-.brand-text { margin: 0; font-size: 18px; font-weight: 700; line-height: 1.4; white-space: nowrap; }
+.brand-mark b:first-child { z-index: 1; }
+.brand-mark b + b { margin-left: -9px; }
+.brand-mark b:lang(zh) { font-weight: 600; font-size: 16px; }
+.brand-mark b:lang(vi) { font-size: 14px; letter-spacing: -0.02em; }
+.brand-text { display: flex; align-items: center; gap: 5px; min-width: 0; font-size: 18px; font-weight: 700; line-height: 1.4; white-space: nowrap; }
 .brand-swap { color: var(--muted); font-family: var(--font-latin); font-weight: 400; font-size: 15px; }
+.brand-guest { color: var(--c-ink); }
+.brand-guest:lang(vi) { font-size: 17px; font-weight: 650; letter-spacing: -0.01em; }
+.brand-chev { width: 16px; height: 16px; margin-left: -2px; color: var(--muted); stroke-width: 2.4; }
 .topbar-actions { display: flex; gap: 2px; }
 .icon-btn {
   display: grid;
@@ -239,7 +281,7 @@ html[data-listening="zh"] .glow-km { opacity: 0.35; }
   animation: msg-in 0.34s var(--ease) both;
 }
 .msg-km { align-self: flex-start; }
-.msg-zh { align-self: flex-end; flex-direction: row-reverse; }
+.msg-guest { align-self: flex-end; flex-direction: row-reverse; }
 .msg-avatar {
   display: grid;
   place-items: center;
@@ -252,9 +294,10 @@ html[data-listening="zh"] .glow-km { opacity: 0.35; }
   font-size: 14px;
   font-weight: 700;
   line-height: 1;
+  background: linear-gradient(150deg, var(--c-2), var(--c));
 }
-.msg-km .msg-avatar { background: linear-gradient(150deg, var(--km-2), var(--km)); }
-.msg-zh .msg-avatar { background: linear-gradient(150deg, var(--zh-2), var(--zh)); font-family: var(--font-zh); font-weight: 600; }
+.msg-avatar:lang(zh) { font-weight: 600; }
+.msg-avatar:lang(vi) { font-size: 12.5px; letter-spacing: -0.02em; }
 .msg-body {
   min-width: 0;
   padding: 12px 16px 4px;
@@ -264,7 +307,7 @@ html[data-listening="zh"] .glow-km { opacity: 0.35; }
   box-shadow: var(--card-shadow);
 }
 .msg-km .msg-body { border-bottom-left-radius: 8px; }
-.msg-zh .msg-body { border-bottom-right-radius: 8px; }
+.msg-guest .msg-body { border-bottom-right-radius: 8px; }
 .msg p { margin: 0; overflow-wrap: anywhere; }
 .msg-chip {
   display: inline-flex;
@@ -276,12 +319,10 @@ html[data-listening="zh"] .glow-km { opacity: 0.35; }
   font-size: 12.5px;
   line-height: 1.6;
   font-weight: 500;
+  background: var(--c-tint);
+  color: var(--c-ink);
 }
-.msg-km .msg-chip { background: var(--km-tint); color: var(--km-ink); }
-.msg-zh .msg-chip { background: var(--zh-tint); color: var(--zh-ink); }
-.msg-src { font-size: 14.5px; line-height: 1.65; }
-.msg-km .msg-src { color: var(--km-ink); }
-.msg-zh .msg-src { color: var(--zh-ink); }
+.msg-src { font-size: 14.5px; line-height: 1.65; color: var(--c-ink); }
 .msg-dst { font-size: 20px; font-weight: 500; line-height: 1.6; margin-top: 2px; color: var(--ink); }
 .msg-dst:lang(zh), .msg-dst:lang(zh-CN), .msg-dst:lang(zh-TW) { line-height: 1.5; letter-spacing: 0.02em; }
 .msg-pinyin { font-family: var(--font-latin); font-size: 13.5px; line-height: 1.45; color: var(--muted); margin-top: 3px; }
@@ -290,7 +331,7 @@ html[data-listening="zh"] .glow-km { opacity: 0.35; }
 .msg.is-latest { width: 100%; max-width: 100%; }
 .msg.is-latest .msg-body { flex: 1; padding: 14px 18px 6px; border-radius: 26px; box-shadow: 0 10px 34px rgba(30, 36, 90, 0.12); }
 .msg-km.is-latest .msg-body { border-bottom-left-radius: 10px; }
-.msg-zh.is-latest .msg-body { border-bottom-right-radius: 10px; }
+.msg-guest.is-latest .msg-body { border-bottom-right-radius: 10px; }
 .msg.is-latest .msg-dst { font-size: 27px; line-height: 1.55; }
 .msg-km.is-latest .msg-dst:lang(km) { line-height: 1.7; }
 
@@ -314,9 +355,7 @@ html[data-listening="zh"] .glow-km { opacity: 0.35; }
 .msg-meta { margin-left: auto; padding-left: 8px; font-family: var(--font-latin); font-size: 12px; color: var(--muted); }
 .msg.is-latest .msg-play { background: var(--chip); color: var(--ink); }
 
-.msg.is-speaking .msg-play { color: #FFFFFF; }
-.msg-km.is-speaking .msg-play { background: var(--zh); }
-.msg-zh.is-speaking .msg-play { background: var(--km); }
+.msg.is-speaking .msg-play { color: #FFFFFF; background: var(--c); } /* ពណ៌ភាសាដែលកំពុងអាន */
 .msg.is-speaking .msg-play svg { animation: beat 0.9s ease-in-out infinite; }
 .msg.is-loading-audio .msg-play svg { animation: beat 1.2s ease-in-out infinite; opacity: 0.6; }
 
@@ -362,8 +401,7 @@ html[data-listening="zh"] .glow-km { opacity: 0.35; }
 .photo-lines { list-style: none; margin: 0; padding: 0; }
 .photo-lines li { padding: 9px 0; border-top: 1px solid var(--hairline); }
 .photo-lines li:first-child { border-top: 0; padding-top: 2px; }
-.pl-src { font-size: 14px; line-height: 1.6; color: var(--zh-ink); }
-.pl-src:lang(km) { color: var(--km-ink); }
+.pl-src { font-size: 14px; line-height: 1.6; color: var(--c-ink, var(--ink-2)); }
 .pl-dst { margin-top: 1px; font-size: 19px; font-weight: 500; line-height: 1.6; }
 .msg-photo.is-latest .pl-dst { font-size: 21px; }
 .photo-empty { margin: 4px 0 8px; color: var(--muted); }
@@ -397,9 +435,13 @@ html[data-listening="zh"] .glow-km { opacity: 0.35; }
   font-weight: 700;
   line-height: 1;
   border: 4px solid var(--bg);
+  background: linear-gradient(150deg, var(--c-2), var(--c));
+  box-shadow: 0 16px 34px var(--c-shadow);
 }
-.hero-mark .k { background: linear-gradient(150deg, var(--km-2), var(--km)); box-shadow: 0 16px 34px var(--km-shadow); z-index: 1; transform: rotate(-6deg); }
-.hero-mark .z { background: linear-gradient(150deg, var(--zh-2), var(--zh)); box-shadow: 0 16px 34px var(--zh-shadow); margin-left: -22px; font-family: var(--font-zh); font-weight: 600; font-size: 46px; transform: rotate(6deg); }
+.hero-mark span:first-child { z-index: 1; transform: rotate(-6deg); }
+.hero-mark span + span { margin-left: -22px; transform: rotate(6deg); }
+.hero-mark span:lang(zh) { font-weight: 600; font-size: 46px; }
+.hero-mark span:lang(vi) { font-size: 38px; letter-spacing: -0.03em; }
 .hero-title { margin: 0; font-size: 26px; font-weight: 700; line-height: 1.5; }
 .hero-sub { margin: 0; color: var(--muted); font-size: 16px; }
 
@@ -446,9 +488,10 @@ html[data-listening="zh"] .glow-km { opacity: 0.35; }
   color: #FFFFFF;
   font-weight: 700;
   font-size: 18px;
+  background: linear-gradient(150deg, var(--c-2), var(--c));
 }
-.howto-row .g.k { background: linear-gradient(150deg, var(--km-2), var(--km)); }
-.howto-row .g.z { background: linear-gradient(150deg, var(--zh-2), var(--zh)); font-family: var(--font-zh); font-weight: 600; }
+.howto-row .g:lang(zh) { font-weight: 600; }
+.howto-row .g:lang(vi) { font-size: 15px; letter-spacing: -0.02em; }
 .howto-row .g.c { background: var(--chip); color: var(--ink); }
 .howto-row .g.c svg { width: 19px; height: 19px; }
 
@@ -470,7 +513,7 @@ html[data-listening="zh"] .glow-km { opacity: 0.35; }
   flex: 1 1 0;
   min-width: 0;
   display: grid;
-  grid-template-rows: 1fr auto auto;
+  grid-template-rows: minmax(0, 1fr) auto auto; /* អេក្រង់ទាប៖ អក្សរធំរួមតូច មិនឲ្យឈ្មោះ និងពាក្យណែនាំជាន់គ្នា */
   justify-items: center;
   align-items: end;
   height: 112px;
@@ -478,6 +521,8 @@ html[data-listening="zh"] .glow-km { opacity: 0.35; }
   border: 0;
   border-radius: 26px;
   color: #FFFFFF;
+  background: linear-gradient(160deg, var(--c-2), var(--c));
+  box-shadow: 0 10px 26px var(--c-shadow);
   overflow: hidden;
   user-select: none;
   -webkit-user-select: none;
@@ -492,11 +537,11 @@ html[data-listening="zh"] .glow-km { opacity: 0.35; }
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.38), inset 0 -10px 24px rgba(0, 0, 0, 0.08);
   pointer-events: none;
 }
-.talk-km { background: linear-gradient(160deg, var(--km-2), var(--km)); box-shadow: 0 10px 26px var(--km-shadow); }
-.talk-zh { background: linear-gradient(160deg, var(--zh-2), var(--zh)); box-shadow: 0 10px 26px var(--zh-shadow); }
 .talk:active { transform: scale(0.97); }
 .talk-glyph { font-size: 50px; line-height: 1.12; font-weight: 700; transition: opacity 0.2s ease, transform 0.38s var(--ease); }
-.talk-zh .talk-glyph { font-family: var(--font-zh); font-weight: 600; font-size: 45px; line-height: 1.2; }
+.talk:lang(zh) .talk-glyph { font-weight: 600; font-size: 45px; line-height: 1.2; }
+.talk:lang(vi) .talk-glyph { font-size: 33px; line-height: 1.7; letter-spacing: -0.02em; white-space: nowrap; }
+.talk:lang(vi) .talk-hint { line-height: 1.75; } /* ចន្លោះសម្រាប់សញ្ញាលើអក្សរវៀតណាម (ấ ể) */
 .talk-name { font-size: 15px; font-weight: 700; line-height: 1.35; }
 .talk-hint { font-size: 12px; line-height: 1.45; opacity: 0.86; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
 .talk:disabled { opacity: 0.35; }
@@ -567,9 +612,8 @@ html[data-listening="zh"] .glow-km { opacity: 0.35; }
   grid-template-rows: 1fr 1fr;
   gap: 2px;
 }
-.pane { position: relative; display: flex; flex-direction: column; min-height: 0; overflow: hidden; }
-.pane-zh { transform: rotate(180deg); background: linear-gradient(180deg, transparent, var(--zh-tint)); }
-.pane-km { background: linear-gradient(180deg, transparent, var(--km-tint)); }
+.pane { position: relative; display: flex; flex-direction: column; min-height: 0; overflow: hidden; background: linear-gradient(180deg, transparent, var(--c-tint)); }
+.pane-guest { transform: rotate(180deg); }
 .pane-list {
   flex: 1;
   min-height: 0;
@@ -582,10 +626,11 @@ html[data-listening="zh"] .glow-km { opacity: 0.35; }
 }
 .pane-list > :first-child { margin-top: auto; }
 .pane-dock { flex: none; display: flex; padding: 4px 12px calc(12px + var(--safe-bottom)); }
-.pane-zh .pane-dock { padding-bottom: calc(12px + var(--safe-top)); }
+.pane-guest .pane-dock { padding-bottom: calc(12px + var(--safe-top)); }
 .pane-dock .talk { height: 100px; }
 .pane-dock .talk-glyph { font-size: 46px; }
-.pane-dock .talk-zh .talk-glyph { font-size: 42px; }
+.pane-dock .talk:lang(zh) .talk-glyph { font-size: 42px; }
+.pane-dock .talk:lang(vi) .talk-glyph { font-size: 31px; }
 
 .fmsg {
   align-self: flex-start;
@@ -754,6 +799,34 @@ html[data-listening="zh"] .glow-km { opacity: 0.35; }
 .send-btn:active { transform: scale(0.94); }
 .send-btn svg { stroke-width: 2.4; }
 .composer-note { margin: 8px 6px 0; font-size: 13px; color: var(--muted); }
+.composer-dir span:lang(vi) { font-weight: 600; }
+
+/* ជ្រើសភាសាភ្ញៀវ */
+.lang-sheet .sheet-title { font-size: 24px; }
+.lang-sheet .card { margin-top: 10px; }
+.lang-opt { width: 100%; min-height: 72px; gap: 14px; border: 0; background: transparent; text-align: left; transition: background 0.15s ease; }
+.lang-opt:active { background: var(--press); }
+.lang-opt > .lang-mark {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 46px;
+  height: 46px;
+  border-radius: 15px;
+  color: #FFFFFF;
+  font-size: 21px;
+  font-weight: 700;
+  line-height: 1;
+  background: linear-gradient(150deg, var(--c-2), var(--c));
+  box-shadow: 0 6px 14px var(--c-shadow);
+}
+.lang-mark:lang(zh) { font-weight: 600; }
+.lang-mark:lang(vi) { font-size: 18px; letter-spacing: -0.02em; }
+.lang-text { display: grid; }
+.lang-text b { font-size: 19px; font-weight: 600; line-height: 1.4; }
+.lang-text small { font-size: 13.5px; line-height: 1.5; color: var(--muted); }
+.lang-opt svg { width: 24px; height: 24px; color: var(--c); stroke-width: 2.4; }
+.lang-opt[aria-pressed="true"] { background: var(--c-tint); }
 
 /* ការកំណត់ — បញ្ជីជាក្រុម ដូច iPhone */
 .settings { top: calc(var(--safe-top) + 12px); display: flex; flex-direction: column; padding-bottom: 0; }
@@ -871,7 +944,8 @@ html[data-listening="zh"] .glow-km { opacity: 0.35; }
 @media (max-height: 680px) {
   .talk { height: 96px; }
   .talk-glyph { font-size: 42px; }
-  .talk-zh .talk-glyph { font-size: 38px; }
+  .talk:lang(zh) .talk-glyph { font-size: 38px; }
+  .talk:lang(vi) .talk-glyph { font-size: 29px; }
   .talk-live { top: 10px; }
   .msg.is-latest .msg-dst { font-size: 23px; }
   .chat { padding-bottom: calc(130px + var(--safe-bottom)); }
