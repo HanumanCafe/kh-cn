@@ -36,6 +36,7 @@
     <symbol id="i-stop" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="3"/></symbol>
     <symbol id="i-check" viewBox="0 0 24 24"><path d="M5 12.5 10 17.5 19 7"/></symbol>
     <symbol id="i-paste" viewBox="0 0 24 24"><rect x="5" y="4" width="14" height="17" rx="3"/><path d="M9 4V3a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v1M9 11h6M9 15h4"/></symbol>
+    <symbol id="i-camera" viewBox="0 0 24 24"><path d="M3 8.5A2.5 2.5 0 0 1 5.5 6h1.8l1.5-2.2h6.4L16.7 6h1.8A2.5 2.5 0 0 1 21 8.5v9a2.5 2.5 0 0 1-2.5 2.5h-13A2.5 2.5 0 0 1 3 17.5v-9Z"/><circle cx="12" cy="13" r="3.6"/></symbol>
   </svg>
 
   <!-- ពន្លឺពណ៌ពីរនៅខាងក្រោយ៖ ខៀវ = អ្នកនិយាយខ្មែរ, ក្រហម = អ្នកនិយាយចិន -->
@@ -93,7 +94,10 @@
         <span class="talk-hint">ចុចហើយនិយាយ</span>
         <span class="talk-live" aria-hidden="true"><svg class="talk-stop"><use href="#i-stop"/></svg><span class="wave"></span><span class="talk-time">0:00</span></span>
       </button>
-      <button class="kbd-btn" id="btn-type" type="button" aria-label="វាយអក្សរដើម្បីបកប្រែ"><svg><use href="#i-keyboard"/></svg></button>
+      <div class="dock-mid">
+        <button class="kbd-btn" id="btn-photo" type="button" aria-label="ថតរូប ដើម្បីបកប្រែអក្សរក្នុងរូប"><svg><use href="#i-camera"/></svg></button>
+        <button class="kbd-btn" id="btn-type" type="button" aria-label="វាយអក្សរដើម្បីបកប្រែ"><svg><use href="#i-keyboard"/></svg></button>
+      </div>
       <button class="talk talk-zh" data-lang="zh" type="button" lang="zh-CN">
         <span class="talk-glyph">中</span>
         <span class="talk-name">中文</span>
@@ -103,6 +107,9 @@
     </footer>
 
     <div class="toast glass" id="toast" role="status" aria-live="assertive" hidden></div>
+
+    <!-- ជ្រើសរូប៖ iPhone បង្ហាញជម្រើស ថតរូប / បណ្ណាល័យរូប -->
+    <input type="file" id="photo-input" accept="image/*" hidden>
 
     <!-- ===== វាយអក្សរ ===== -->
     <div class="scrim" id="scrim" hidden></div>
