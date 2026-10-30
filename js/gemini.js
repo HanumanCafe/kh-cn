@@ -384,8 +384,7 @@ const IMAGE_SCHEMA = {
   properties: {
     lang: { type: 'string', enum: ['zh', 'km', 'other', 'none'] },
     lines: {
-      type: 'array',
-      maxItems: 80,
+      type: 'array', // កុំដាក់ maxItems — Gemini បដិសេធ schema (too many states)។ កាត់ត្រឹម ៨០ បន្ទាត់ក្នុង accept ជំនួសវិញ
       items: {
         type: 'object',
         properties: { source: { type: 'string' }, translation: { type: 'string' }, pinyin: { type: 'string' } },
