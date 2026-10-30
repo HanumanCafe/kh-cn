@@ -5,13 +5,17 @@ const SETTINGS_KEY = 'khcn.settings.v1';
 const HISTORY_KEY = 'khcn.history.v1';
 const MAX_HISTORY = 200;
 
+export const GUEST_LANGS = ['zh', 'vi'];            // ភាសាភ្ញៀវ៖ ចិន វៀតណាម
+const MESSAGE_LANGS = ['km', ...GUEST_LANGS, 'other']; // 'other' = រូបថតភាសាផ្សេង
+
 export const DEFAULT_SETTINGS = {
   apiKey: '',
   model: 'gemini-3.6-flash',          // ស្តាប់ + បកប្រែ
   ttsModel: 'gemini-3.8-flash-tts',   // បង្កើតសំឡេង
+  guest: 'zh',                        // ភាសាភ្ញៀវ៖ 'zh' ចិន | 'vi' វៀតណាម
   kmVoice: 'Kore',                    // សំឡេងខ្មែរ (Gemini)
-  zhEngine: 'device',                 // 'device' = សំឡេង iPhone, 'gemini' = សំឡេង Gemini
-  zhVoice: 'Puck',
+  guestEngine: 'device',              // សំឡេងភ្ញៀវ៖ 'device' = សំឡេង iPhone, 'gemini' = សំឡេង Gemini
+  guestVoice: 'Puck',
   rate: 1,                            // ល្បឿនសំឡេង iPhone
   autoSpeak: true,
   autoStop: true,
@@ -32,9 +36,13 @@ export function loadSettings() {
   const out = { ...DEFAULT_SETTINGS };
   try {
     const saved = JSON.parse(read(SETTINGS_KEY) || '{}');
+    // កំណែ ១.២ ចុះក្រោម ហៅសំឡេងភ្ញៀវថា zhEngine / zhVoice
+    if (saved.guestEngine === undefined) saved.guestEngine = saved.zhEngine;
+    if (saved.guestVoice === undefined) saved.guestVoice = saved.zhVoice;
     for (const k of Object.keys(DEFAULT_SETTINGS)) {
       if (saved[k] !== undefined && typeof saved[k] === typeof DEFAULT_SETTINGS[k]) out[k] = saved[k];
     }
+    if (!GUEST_LANGS.includes(out.guest)) out.guest = DEFAULT_SETTINGS.guest;
   } catch { /* ការកំណត់ខូច — ប្រើតម្លៃដើម */ }
   return out;
 }
@@ -48,7 +56,9 @@ export function loadHistory() {
     const list = JSON.parse(read(HISTORY_KEY) || '[]');
     if (!Array.isArray(list)) return [];
     // យកតែសារដែលបកប្រែរួច (សារកំពុងរង់ចាំ ឬខូច មិនរក្សាទុកទេ)
-    return list.filter(m => m && m.id && m.status === 'done' && (m.from === 'km' || m.from === 'zh'));
+    return list
+      .filter(m => m && m.id && m.status === 'done' && MESSAGE_LANGS.includes(m.from))
+      .map(m => (GUEST_LANGS.includes(m.guest) ? m : { ...m, guest: 'zh' })); // សារមុនកំណែ ១.៣ ជាសន្ទនាចិន
   } catch {
     return [];
   }
@@ -61,8 +71,8 @@ export function saveHistory(messages) {
   let thumbs = 0;
   const out = [];
   for (let i = done.length - 1; i >= 0; i--) {
-    const { id, from, source, target, pinyin, ts, via, status, kind, lines, note, lang } = done[i];
-    const item = { id, from, source, target, pinyin, ts, via, status };
+    const { id, from, guest, source, target, pinyin, ts, via, status, kind, lines, note, lang } = done[i];
+    const item = { id, from, guest, source, target, pinyin, ts, via, status };
     if (kind === 'photo') {
       Object.assign(item, { kind, lines, note, lang, thumb: '' });
       if (done[i].thumb && thumbs < MAX_PHOTO_THUMBS) { item.thumb = done[i].thumb; thumbs += 1; }

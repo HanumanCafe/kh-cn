@@ -1,7 +1,9 @@
 // gemini.js — ហៅ Gemini API របស់ Google (Interactions API)
+// ភាសា៖ ខ្មែរ ⇄ ភាសាភ្ញៀវ (ចិន ឬ វៀតណាម)
 //   1) ស្តាប់សំឡេង + បកប្រែ ក្នុងការហៅតែម្តង
 //   2) បកប្រែអក្សរដែលវាយ
-//   3) បង្កើតសំឡេងអាន (text-to-speech) — សំខាន់សម្រាប់ភាសាខ្មែរ ព្រោះ iPhone គ្មានសំឡេងខ្មែរ
+//   3) អានអក្សរក្នុងរូបថត ហើយបកប្រែ
+//   4) បង្កើតសំឡេងអាន (text-to-speech) — សំខាន់សម្រាប់ភាសាខ្មែរ ព្រោះ iPhone គ្មានសំឡេងខ្មែរ
 //
 // ពេល Google មានអ្នកប្រើច្រើន ម៉ូដែលខ្លះឆ្លើយយឺត ឬបដិសេធ (503)។ ដូច្នេះ៖
 //   - បើម៉ូដែលទីមួយយឺតពេក កម្មវិធីចាប់ផ្តើមម៉ូដែលទីពីរស្របគ្នា ហើយយកចម្លើយណាមកមុន
@@ -284,53 +286,68 @@ function parseJson(text) {
 }
 
 // ---------- ការណែនាំសម្រាប់ Gemini ----------
+// ខ្មែរ = អ្នកប្រើ, guest = ភាសាភ្ញៀវ ('zh' ចិន ឬ 'vi' វៀតណាម)
 
-const LANG = { km: 'Khmer', zh: 'Mandarin Chinese' };
+const LANG = { km: 'Khmer', zh: 'Mandarin Chinese', vi: 'Vietnamese' };
+const GUESTS = ['zh', 'vi'];
 
-const SCHEMA = {
-  type: 'object',
-  properties: {
-    spoken: { type: 'string', enum: ['km', 'zh', 'other', 'none'] },
+function pickGuest(guest) { return GUESTS.includes(guest) ? guest : 'zh'; }
+
+// Pinyin មានតែពេលភ្ញៀវនិយាយចិន
+function schemaFor(guest) {
+  const properties = {
+    spoken: { type: 'string', enum: ['km', guest, 'other', 'none'] },
     heard: { type: 'string' },
     translation: { type: 'string' },
-    pinyin: { type: 'string' },
-  },
-  required: ['spoken', 'heard', 'translation', 'pinyin'],
-};
+  };
+  const required = ['spoken', 'heard', 'translation'];
+  if (guest === 'zh') {
+    properties.pinyin = { type: 'string' };
+    required.push('pinyin');
+  }
+  return { type: 'object', properties, required };
+}
 
-function systemPrompt({ zhScript, context }) {
+function systemPrompt({ zhScript, context }, guest) {
   const script = zhScript === 'traditional' ? 'Traditional' : 'Simplified';
   const lines = [
-    'You are a professional interpreter between Khmer (Cambodia) and Mandarin Chinese. Two people are talking face to face through a phone app: one speaks Khmer, the other speaks Mandarin.',
+    `You are a professional interpreter between Khmer (Cambodia) and ${LANG[guest]}. Two people are talking face to face through a phone app: one speaks Khmer, the other speaks ${LANG[guest]}.`,
     'Rules:',
     '- Interpret only. Never answer questions, add comments, greetings, or explanations. If the speaker asks a question, translate the question.',
     '- Keep the meaning, tone and politeness of the speaker. Use natural everyday spoken language that a native speaker would really say, not word-for-word translation.',
     '- Keep names, numbers, prices, quantities, dates, units and brand names accurate. Write numbers with digits.',
     '- Khmer text: standard Khmer Unicode script, natural spoken Khmer as used in Cambodia today. Do not put spaces between Khmer words; use a space only where Khmer normally has one (between phrases or around numbers and foreign words).',
-    `- Chinese text: Mandarin written in ${script} Chinese characters.`,
-    '- "pinyin": Hanyu Pinyin with tone marks for the Chinese sentence of this turn (the transcription if Chinese was spoken, otherwise the translation), with spaces between words. Empty string if there is no Chinese.',
-    'Return only the JSON object.',
   ];
+  if (guest === 'zh') {
+    lines.push(
+      `- Chinese text: Mandarin written in ${script} Chinese characters.`,
+      '- "pinyin": Hanyu Pinyin with tone marks for the Chinese sentence of this turn (the transcription if Chinese was spoken, otherwise the translation), with spaces between words. Empty string if there is no Chinese.',
+    );
+  } else {
+    lines.push('- Vietnamese text: correct modern Vietnamese with all tone marks. Choose pronouns (tôi, em, anh, chị, bạn…) that fit how the two people address each other and keep the same politeness; for example Khmer បង is usually anh or chị, and អូន is em.');
+  }
+  lines.push('Return only the JSON object.');
   if (context && context.trim()) lines.push(`Conversation context (use it to choose the right words): ${context.trim().slice(0, 500)}`);
   return lines.join('\n');
 }
 
-function audioTask(from) {
-  const to = from === 'km' ? 'zh' : 'km';
-  return [
+function audioTask(from, guest) {
+  const to = from === 'km' ? guest : 'km';
+  const steps = [
     `This recording comes from the ${LANG[from]} speaker's button, so the speaker most likely speaks ${LANG[from]}.`,
-    `1. "spoken": which language is actually spoken — "km" (Khmer), "zh" (Chinese), "other" (another language), or "none" if there is no clear speech (silence, noise, or unintelligible).`,
+    `1. "spoken": which language is actually spoken — "km" (Khmer), "${guest}" (${LANG[guest]}), "other" (another language), or "none" if there is no clear speech (silence, noise, or unintelligible).`,
     '2. "heard": transcribe exactly what was said, in the script of the spoken language. Empty if "none".',
     `3. "translation": interpret it into ${LANG[to]}. Exception: if the speaker actually spoke ${LANG[to]}, interpret it into ${LANG[from]} instead. Empty if "none".`,
-    '4. "pinyin": as described in the rules.',
-  ].join('\n');
+  ];
+  if (guest === 'zh') steps.push('4. "pinyin": as described in the rules.');
+  return steps.join('\n');
 }
 
-function textTask(from, text) {
-  const to = from === 'km' ? 'zh' : 'km';
+function textTask(from, text, guest) {
+  const to = from === 'km' ? guest : 'km';
   return [
     `The ${LANG[from]} speaker typed the text below.`,
-    `Set "spoken" to the language of the text ("km", "zh" or "other"), "heard" to the text unchanged, and "translation" to its interpretation into ${LANG[to]} (or into ${LANG[from]} if the text is already ${LANG[to]}).`,
+    `Set "spoken" to the language of the text ("km", "${guest}" or "other"), "heard" to the text unchanged, and "translation" to its interpretation into ${LANG[to]} (or into ${LANG[from]} if the text is already ${LANG[to]}).`,
     'Text:',
     '"""',
     text,
@@ -340,19 +357,23 @@ function textTask(from, text) {
 
 /**
  * បកប្រែសំឡេង (audioBase64) ឬអក្សរ (text)
- * from: 'km' | 'zh' — ប៊ូតុងដែលបានចុច
+ * from: 'km' ឬភាសាភ្ញៀវ — ប៊ូតុងដែលបានចុច
+ * guest: 'zh' | 'vi' — ភាសាភ្ញៀវក្នុងសន្ទនានេះ
  * ត្រឡប់៖ { spoken, heard, translation, pinyin, model }
  */
-export function translate({ apiKey, model, from, audioBase64, text, settings }) {
-  const system = systemPrompt(settings);
-  const input = [{ type: 'text', text: audioBase64 ? audioTask(from) : textTask(from, text) }];
+export function translate({ apiKey, model, from, guest, audioBase64, text, settings }) {
+  const pair = pickGuest(guest);
+  const speaker = from === 'km' ? 'km' : pair;
+  const system = systemPrompt(settings, pair);
+  const schema = schemaFor(pair);
+  const input = [{ type: 'text', text: audioBase64 ? audioTask(speaker, pair) : textTask(speaker, text, pair) }];
   if (audioBase64) input.push({ type: 'audio', data: audioBase64, mime_type: 'audio/wav' });
   const buildBody = (m, thinking) => {
     const body = {
       model: m,
       system_instruction: system,
       input,
-      response_format: { type: 'text', mime_type: 'application/json', schema: SCHEMA },
+      response_format: { type: 'text', mime_type: 'application/json', schema },
     };
     if (thinking) {
       body.generation_config = { thinking_level: thinking };
@@ -365,8 +386,9 @@ export function translate({ apiKey, model, from, audioBase64, text, settings }) 
     if (!data || typeof data !== 'object') throw new GeminiError('parse', 'Could not read the answer', { model: used });
     const clean = (v) => (typeof v === 'string' ? v.trim() : '');
     let spoken = clean(data.spoken).toLowerCase();
-    if (!['km', 'zh', 'other', 'none'].includes(spoken)) spoken = clean(data.heard) ? from : 'none';
-    return { spoken, heard: clean(data.heard), translation: clean(data.translation), pinyin: clean(data.pinyin), model: used };
+    if (!['km', pair, 'other', 'none'].includes(spoken)) spoken = clean(data.heard) ? speaker : 'none';
+    const pinyin = pair === 'zh' ? clean(data.pinyin) : '';
+    return { spoken, heard: clean(data.heard), translation: clean(data.translation), pinyin, model: used };
   };
   // ចាប់ផ្តើមម៉ូដែលពីរព្រមគ្នា ហើយបន្ថែមទីបីបើទាំងពីរយឺតជាង ២.៥ វិនាទី
   return runHedged('translate', apiKey, orderModels('translate', model, TRANSLATE_MODELS), buildBody, {
@@ -379,10 +401,12 @@ export function translate({ apiKey, model, from, audioBase64, text, settings }) 
 
 // ---------- បកប្រែអក្សរក្នុងរូបថត ----------
 
+const IMAGE_LANGS = ['zh', 'vi', 'km', 'other', 'none'];
+
 const IMAGE_SCHEMA = {
   type: 'object',
   properties: {
-    lang: { type: 'string', enum: ['zh', 'km', 'other', 'none'] },
+    lang: { type: 'string', enum: IMAGE_LANGS },
     lines: {
       type: 'array', // កុំដាក់ maxItems — Gemini បដិសេធ schema (too many states)។ កាត់ត្រឹម ៨០ បន្ទាត់ក្នុង accept ជំនួសវិញ
       items: {
@@ -396,14 +420,15 @@ const IMAGE_SCHEMA = {
   required: ['lang', 'lines', 'note'],
 };
 
-function imageTask(zhScript) {
+function imageTask(zhScript, guest) {
   const script = zhScript === 'traditional' ? 'Traditional' : 'Simplified';
+  const khmerInto = guest === 'vi' ? 'Vietnamese' : `Mandarin Chinese (${script} characters)`;
   return [
     'Read all the text in this photo (signs, menus, labels, price tags, receipts, screenshots, handwriting).',
-    `- If the text is Chinese, translate it into Khmer. If it is Khmer, translate it into Mandarin Chinese (${script} characters). Text in any other language: translate it into Khmer.`,
+    `- If the text is Khmer, translate it into ${khmerInto}. Text in any other language (Chinese, Vietnamese, English…): translate it into Khmer.`,
     '- Keep the reading order. Put words that belong together on one line (for example a product with its price).',
     '- Keep numbers, prices, sizes and units exactly as written, using Western digits and the currency sign (for example ¥25/件 becomes ¥25/ដុំ).',
-    '- "lang": the main language of the text: "zh", "km", "other", or "none" if there is no readable text.',
+    '- "lang": the main language of the text: "zh" (Chinese), "vi" (Vietnamese), "km" (Khmer), "other", or "none" if there is no readable text.',
     '- "lines": every line with "source" (the original text), "translation", and "pinyin" (Hanyu Pinyin with tone marks for the Chinese side of that line, empty if there is no Chinese).',
     '- "note": one short Khmer sentence saying what this is (for example "តារាងតម្លៃសម្លៀកបំពាក់លក់ដុំ"). If there is no text, describe the photo briefly in Khmer.',
     'Return only the JSON object.',
@@ -412,12 +437,14 @@ function imageTask(zhScript) {
 
 /**
  * អានអក្សរក្នុងរូប ហើយបកប្រែ
+ * guest: ភាសាភ្ញៀវ — អក្សរខ្មែរក្នុងរូបបកប្រែជាភាសានេះ
  * ត្រឡប់៖ { lang, lines: [{ source, translation, pinyin }], note, model }
  */
-export function translateImage({ apiKey, model, imageBase64, mimeType = 'image/jpeg', settings }) {
-  const system = systemPrompt(settings);
+export function translateImage({ apiKey, model, imageBase64, mimeType = 'image/jpeg', guest, settings }) {
+  const pair = pickGuest(guest);
+  const system = systemPrompt(settings, pair);
   const input = [
-    { type: 'text', text: imageTask(settings.zhScript) },
+    { type: 'text', text: imageTask(settings.zhScript, pair) },
     { type: 'image', data: imageBase64, mime_type: mimeType, resolution: 'high' },
   ];
   const buildBody = (m, thinking) => {
@@ -438,7 +465,7 @@ export function translateImage({ apiKey, model, imageBase64, mimeType = 'image/j
     if (!data || typeof data !== 'object') throw new GeminiError('parse', 'Could not read the answer', { model: used });
     const clean = (v) => (typeof v === 'string' ? v.trim() : '');
     let lang = clean(data.lang).toLowerCase();
-    if (!['zh', 'km', 'other', 'none'].includes(lang)) lang = 'other';
+    if (!IMAGE_LANGS.includes(lang)) lang = 'other';
     const lines = (Array.isArray(data.lines) ? data.lines : [])
       .map(l => ({ source: clean(l && l.source), translation: clean(l && l.translation), pinyin: clean(l && l.pinyin) }))
       .filter(l => l.source || l.translation)

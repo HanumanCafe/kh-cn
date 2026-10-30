@@ -112,7 +112,9 @@ if ('speechSynthesis' in window) {
 
 function norm(lang) { return String(lang || '').toLowerCase().replace('_', '-'); }
 
-// រកសំឡេងល្អបំផុតសម្រាប់ភាសា ('zh' ឬ 'km') — null បើគ្មាន
+const SPEECH_TAG = { km: 'km-KH', zh: 'zh-CN', vi: 'vi-VN' };
+
+// រកសំឡេងល្អបំផុតសម្រាប់ភាសា ('km', 'zh' ឬ 'vi') — null បើគ្មាន
 export function deviceVoiceFor(lang) {
   const all = voices();
   let list;
@@ -120,10 +122,10 @@ export function deviceVoiceFor(lang) {
     list = all.filter(v => norm(v.lang).startsWith('zh-cn') || norm(v.lang) === 'zh' || norm(v.lang).startsWith('cmn'));
     if (!list.length) list = all.filter(v => norm(v.lang).startsWith('zh-tw'));
   } else {
-    list = all.filter(v => norm(v.lang).startsWith('km'));
+    list = all.filter(v => norm(v.lang) === lang || norm(v.lang).startsWith(`${lang}-`));
   }
   if (!list.length) return null;
-  const prefer = [/premium/i, /enhanced/i, /tingting|婷婷|lili|yu-?shu|li-?mu|xiaoxiao|yaoyao/i];
+  const prefer = [/premium/i, /enhanced/i, /tingting|婷婷|lili|yu-?shu|li-?mu|xiaoxiao|yaoyao|linh/i];
   for (const re of prefer) {
     const v = list.find(x => re.test(x.name) || re.test(x.voiceURI || ''));
     if (v) return v;
@@ -136,7 +138,7 @@ export function speakDevice(text, lang, rate = 1) {
   return new Promise((resolve, reject) => {
     if (!('speechSynthesis' in window)) { reject(new Error('no-speech-synthesis')); return; }
     const u = new SpeechSynthesisUtterance(text);
-    u.lang = lang === 'zh' ? 'zh-CN' : 'km-KH';
+    u.lang = SPEECH_TAG[lang] || lang;
     const v = deviceVoiceFor(lang);
     if (v) u.voice = v;
     u.rate = rate;
