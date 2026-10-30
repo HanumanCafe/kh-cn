@@ -185,6 +185,7 @@ function runHedged(kind, apiKey, models, buildBody, { hedgeMs, timeoutMs, accept
     let done = false;
     let lastError = null;
     let hedgeTimer = null;
+    const initial = Math.min(startParallel, MAX_PARALLEL);
 
     const finish = (ok, value) => {
       if (done) return;
@@ -199,7 +200,7 @@ function runHedged(kind, apiKey, models, buildBody, { hedgeMs, timeoutMs, accept
       hedgeTimer = setTimeout(() => {
         if (running < MAX_PARALLEL) launch();
         else armHedge();
-      }, next === 1 ? hedgeMs : NEXT_HEDGE_MS);
+      }, next <= initial ? hedgeMs : NEXT_HEDGE_MS); // រង់ចាំ hedgeMs សិន មុនបន្ថែមម៉ូដែលលើសពីក្រុមដំបូង
     };
     const launch = () => {
       if (done || next >= models.length) return;
@@ -233,7 +234,7 @@ function runHedged(kind, apiKey, models, buildBody, { hedgeMs, timeoutMs, accept
       if (next < models.length) launch();
       else if (running === 0) finish(false, lastError || new GeminiError('server', 'No model available'));
     };
-    for (let i = 0; i < Math.min(startParallel, MAX_PARALLEL); i++) launch();
+    for (let i = 0; i < initial; i++) launch();
   });
 }
 
