@@ -1,0 +1,56 @@
+# បង្កើត App iPhone (IPA មិនទាន់ចុះហត្ថលេខា) នៅលើ Mac របស់ GitHub (ឥតគិតថ្លៃ សម្រាប់ repository សាធារណៈ)
+# យក IPA៖ Actions → "iPhone app (IPA)" → ដំណើរការចុងក្រោយ → Artifacts → KHCN-iPhone-unsigned-ipa
+# ដំឡើងលើ iPhone ដោយ Sideloadly ឬ AltStore (ចុះហត្ថលេខាដោយ Apple ID របស់អ្នក)
+name: iPhone app (IPA)
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'native/ios/**'
+      - '.github/workflows/ios.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  ipa:
+    runs-on: macos-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Xcode project
+        working-directory: native/ios
+        run: |
+          brew install xcodegen
+          mkdir -p Assets.xcassets/AppIcon.appiconset Assets.xcassets/LaunchBackground.colorset
+          cp icon-1024.png Assets.xcassets/AppIcon.appiconset/icon-1024.png
+          cat > Assets.xcassets/Contents.json <<'JSON'
+          {"info":{"author":"xcode","version":1}}
+          JSON
+          cat > Assets.xcassets/AppIcon.appiconset/Contents.json <<'JSON'
+          {"images":[{"filename":"icon-1024.png","idiom":"universal","platform":"ios","size":"1024x1024"}],"info":{"author":"xcode","version":1}}
+          JSON
+          cat > Assets.xcassets/LaunchBackground.colorset/Contents.json <<'JSON'
+          {"colors":[{"idiom":"universal","color":{"color-space":"srgb","components":{"red":"0.925","green":"0.933","blue":"0.965","alpha":"1.000"}}},{"idiom":"universal","appearances":[{"appearance":"luminosity","value":"dark"}],"color":{"color-space":"srgb","components":{"red":"0.035","green":"0.043","blue":"0.078","alpha":"1.000"}}}],"info":{"author":"xcode","version":1}}
+          JSON
+          xcodegen generate
+
+      - name: Build (unsigned)
+        working-directory: native/ios
+        run: |
+          xcodebuild -version
+          xcodebuild -project KHCN.xcodeproj -target KHCN -configuration Release -sdk iphoneos \
+            SYMROOT="$PWD/build" CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" build
+          mkdir -p Payload
+          cp -R build/Release-iphoneos/KHCN.app Payload/
+          zip -qry KHCN-unsigned.ipa Payload
+          ls -la KHCN-unsigned.ipa
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: KHCN-iPhone-unsigned-ipa
+          path: native/ios/KHCN-unsigned.ipa
+          retention-days: 90
