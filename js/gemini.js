@@ -339,7 +339,7 @@ function systemPrompt({ zhScript, context }, guest) {
   } else {
     lines.push(
       '- Korean text: natural spoken Korean in Hangul. Use the polite 해요체 (-요 endings) unless the speaker is clearly more formal or more casual, and address the other person respectfully; Khmer បង or អូន usually become a polite form of address or are left out, as Koreans do.',
-      '- "romanization": Revised Romanization of Korean for the Korean sentence of this turn (the transcription if Korean was spoken, otherwise the translation), with spaces between words. Empty string if there is no Korean.',
+      '- "romanization": Revised Romanization of Korean for the Korean sentence of this turn (the transcription if Korean was spoken, otherwise the translation), with spaces between words and no hyphens inside words (for example "annyeonghaseyo"). Empty string if there is no Korean.',
     );
   }
   lines.push('Return only the JSON object.');
@@ -448,7 +448,7 @@ function imageTask(zhScript, guest) {
     '- Keep the reading order. Put words that belong together on one line (for example a product with its price).',
     '- Keep numbers, prices, sizes and units exactly as written, using Western digits and the currency sign (for example ¥25/件 becomes ¥25/ដុំ).',
     '- "lang": the main language of the text: "zh" (Chinese), "vi" (Vietnamese), "ko" (Korean), "km" (Khmer), "other", or "none" if there is no readable text.',
-    '- "lines": every line with "source" (the original text), "translation", and "pinyin": how to read the Chinese or Korean side of that line in Latin letters (Hanyu Pinyin with tone marks for Chinese, Revised Romanization for Korean); empty if that line has neither.',
+    '- "lines": every line with "source" (the original text), "translation", and "pinyin": how to read the Chinese or Korean side of that line in Latin letters (Hanyu Pinyin with tone marks for Chinese, Revised Romanization without hyphens for Korean); empty if that line has neither.',
     '- "note": one short Khmer sentence saying what this is (for example "តារាងតម្លៃសម្លៀកបំពាក់លក់ដុំ"). If there is no text, describe the photo briefly in Khmer.',
     'Return only the JSON object.',
   ].join('\n');
