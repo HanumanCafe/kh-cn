@@ -1,0 +1,39 @@
+# គម្រោង Xcode សម្រាប់ App iPhone (បង្កើតដោយ XcodeGen នៅលើ Mac របស់ GitHub Actions)
+# មើល .github/workflows/ios.yml
+name: KHCN
+options:
+  bundleIdPrefix: com.hanumancafe
+  deploymentTarget:
+    iOS: "15.0"
+targets:
+  KHCN:
+    type: application
+    platform: iOS
+    sources:
+      - App.swift
+      - Assets.xcassets
+    info:
+      path: Info.plist
+      properties:
+        CFBundleDisplayName: បកប្រែ
+        CFBundleShortVersionString: "1.5.0"
+        CFBundleVersion: "1"
+        LSRequiresIPhoneOS: true
+        UILaunchScreen:
+          UIColorName: LaunchBackground
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+        NSMicrophoneUsageDescription: ត្រូវការមីក្រូហ្វូន ដើម្បីស្តាប់ពាក្យដែលអ្នកនិយាយ ហើយបកប្រែ។
+        NSCameraUsageDescription: ត្រូវការកាមេរ៉ា ដើម្បីថតរូប ហើយបកប្រែអក្សរក្នុងរូប។
+        NSPhotoLibraryUsageDescription: ត្រូវការរូបថត ដើម្បីជ្រើសរូប ហើយបកប្រែអក្សរក្នុងរូប។
+        ITSAppUsesNonExemptEncryption: false
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.hanumancafe.khcn
+        PRODUCT_NAME: KHCN
+        TARGETED_DEVICE_FAMILY: "1"
+        SWIFT_VERSION: "5.0"
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        CODE_SIGNING_ALLOWED: "NO"
+        CODE_SIGNING_REQUIRED: "NO"
+        CODE_SIGN_IDENTITY: ""
