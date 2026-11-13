@@ -11,6 +11,38 @@ export function setAudioSession(type) {
   try { if (navigator.audioSession) navigator.audioSession.type = type; } catch { /* មិនគាំទ្រ */ }
 }
 
+// ---------- មីក្រូហ្វូនរួម ----------
+// App លើអេក្រង់ដើម iPhone មិនចាំសិទ្ធិមីក្រូហ្វូនទេ៖ បើមីក្រូហ្វូនបិទមួយរយៈ វាសួរ Allow ម្តងទៀត។
+// keep = true៖ ទុកមីក្រូហ្វូនបើកពេល App កំពុងបើក ដូច្នេះ iPhone សួរតែម្តង រាល់ពេលបើក App។
+const mic = { stream: null, keep: true };
+
+function micUsable(stream) {
+  return !!stream && stream.getAudioTracks().some(t => t.readyState === 'live' && !t.muted);
+}
+
+async function openMic() {
+  if (micUsable(mic.stream)) return mic.stream;
+  const old = mic.stream;
+  const stream = await navigator.mediaDevices.getUserMedia({
+    audio: { channelCount: 1, echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+  });
+  if (old) old.getTracks().forEach(t => t.stop()); // មីក្រូហ្វូនចាស់ឈប់ដំណើរការ (ឧ. ក្រោយទូរសព្ទចូល)
+  mic.stream = stream;
+  return stream;
+}
+
+// បិទមីក្រូហ្វូនពិតប្រាកដ (ចំណុចពណ៌ទឹកក្រូចលើអេក្រង់រលត់)
+export function releaseMic() {
+  if (mic.stream) mic.stream.getTracks().forEach(t => t.stop());
+  mic.stream = null;
+  setAudioSession('playback');
+}
+
+export function setKeepMic(keep) {
+  mic.keep = !!keep;
+  if (!mic.keep) releaseMic();
+}
+
 export class Recorder {
   constructor({ onLevel = () => {}, onAutoStop = () => {}, autoStop = true, maxSeconds = 60 } = {}) {
     this.onLevel = onLevel;
@@ -34,13 +66,11 @@ export class Recorder {
     const resumed = this.ctx.resume().catch(() => {});
     setAudioSession('play-and-record');
     try {
-      this.stream = await navigator.mediaDevices.getUserMedia({
-        audio: { channelCount: 1, echoCancellation: true, noiseSuppression: true, autoGainControl: true },
-      });
+      this.stream = await openMic();
     } catch (err) {
       this.starting = false;
       try { await this.ctx.close(); } catch { /* ignore */ }
-      setAudioSession('playback');
+      releaseMic();
       throw err;
     }
     await resumed;
@@ -117,12 +147,11 @@ export class Recorder {
       if (this.proc) this.proc.disconnect();
       if (this.mute) this.mute.disconnect();
     } catch { /* ignore */ }
-    if (this.stream) this.stream.getTracks().forEach(t => t.stop()); // បិទមីក្រូហ្វូនភ្លាម
     const ctx = this.ctx;
     this.stream = null;
     this.ctx = null;
     if (ctx) ctx.close().catch(() => {});
-    setAudioSession('playback');
+    if (!mic.keep) releaseMic(); // បើមិនចាំ — បិទមីក្រូហ្វូនភ្លាម
   }
 
   // បញ្ចប់ការថត ហើយផ្តល់ WAV ជា base64

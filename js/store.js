@@ -5,20 +5,21 @@ const SETTINGS_KEY = 'khcn.settings.v1';
 const HISTORY_KEY = 'khcn.history.v1';
 const MAX_HISTORY = 200;
 
-export const GUEST_LANGS = ['zh', 'vi'];            // ភាសាភ្ញៀវ៖ ចិន វៀតណាម
+export const GUEST_LANGS = ['zh', 'vi', 'ko'];      // ភាសាភ្ញៀវ៖ ចិន វៀតណាម កូរ៉េ
 const MESSAGE_LANGS = ['km', ...GUEST_LANGS, 'other']; // 'other' = រូបថតភាសាផ្សេង
 
 export const DEFAULT_SETTINGS = {
   apiKey: '',
   model: 'gemini-3.6-flash',          // ស្តាប់ + បកប្រែ
   ttsModel: 'gemini-3.8-flash-tts',   // បង្កើតសំឡេង
-  guest: 'zh',                        // ភាសាភ្ញៀវ៖ 'zh' ចិន | 'vi' វៀតណាម
+  guest: 'zh',                        // ភាសាភ្ញៀវ៖ 'zh' ចិន | 'vi' វៀតណាម | 'ko' កូរ៉េ
   kmVoice: 'Kore',                    // សំឡេងខ្មែរ (Gemini)
   guestEngine: 'device',              // សំឡេងភ្ញៀវ៖ 'device' = សំឡេង iPhone, 'gemini' = សំឡេង Gemini
   guestVoice: 'Puck',
   rate: 1,                            // ល្បឿនសំឡេង iPhone
   autoSpeak: true,
   autoStop: true,
+  keepMic: true,                      // ទុកមីក្រូហ្វូនបើក ពេល App បើក (iPhone សួរ Allow តែម្តង)
   showPinyin: true,
   zhScript: 'simplified',             // 'simplified' | 'traditional'
   context: '',

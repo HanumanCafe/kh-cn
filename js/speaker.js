@@ -112,9 +112,9 @@ if ('speechSynthesis' in window) {
 
 function norm(lang) { return String(lang || '').toLowerCase().replace('_', '-'); }
 
-const SPEECH_TAG = { km: 'km-KH', zh: 'zh-CN', vi: 'vi-VN' };
+const SPEECH_TAG = { km: 'km-KH', zh: 'zh-CN', vi: 'vi-VN', ko: 'ko-KR' };
 
-// រកសំឡេងល្អបំផុតសម្រាប់ភាសា ('km', 'zh' ឬ 'vi') — null បើគ្មាន
+// រកសំឡេងល្អបំផុតសម្រាប់ភាសា ('km', 'zh', 'vi' ឬ 'ko') — null បើគ្មាន
 export function deviceVoiceFor(lang) {
   const all = voices();
   let list;
@@ -125,7 +125,7 @@ export function deviceVoiceFor(lang) {
     list = all.filter(v => norm(v.lang) === lang || norm(v.lang).startsWith(`${lang}-`));
   }
   if (!list.length) return null;
-  const prefer = [/premium/i, /enhanced/i, /tingting|婷婷|lili|yu-?shu|li-?mu|xiaoxiao|yaoyao|linh/i];
+  const prefer = [/premium/i, /enhanced/i, /tingting|婷婷|lili|yu-?shu|li-?mu|xiaoxiao|yaoyao|linh|yuna/i];
   for (const re of prefer) {
     const v = list.find(x => re.test(x.name) || re.test(x.voiceURI || ''));
     if (v) return v;

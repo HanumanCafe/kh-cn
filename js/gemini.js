@@ -1,5 +1,5 @@
 // gemini.js — ហៅ Gemini API របស់ Google (Interactions API)
-// ភាសា៖ ខ្មែរ ⇄ ភាសាភ្ញៀវ (ចិន ឬ វៀតណាម)
+// ភាសា៖ ខ្មែរ ⇄ ភាសាភ្ញៀវ (ចិន វៀតណាម ឬ កូរ៉េ)
 //   1) ស្តាប់សំឡេង + បកប្រែ ក្នុងការហៅតែម្តង
 //   2) បកប្រែអក្សរដែលវាយ
 //   3) អានអក្សរក្នុងរូបថត ហើយបកប្រែ
@@ -286,22 +286,24 @@ function parseJson(text) {
 }
 
 // ---------- ការណែនាំសម្រាប់ Gemini ----------
-// ខ្មែរ = អ្នកប្រើ, guest = ភាសាភ្ញៀវ ('zh' ចិន ឬ 'vi' វៀតណាម)
+// ខ្មែរ = អ្នកប្រើ, guest = ភាសាភ្ញៀវ ('zh' ចិន, 'vi' វៀតណាម ឬ 'ko' កូរ៉េ)
 
-const LANG = { km: 'Khmer', zh: 'Mandarin Chinese', vi: 'Vietnamese' };
-const GUESTS = ['zh', 'vi'];
+const LANG = { km: 'Khmer', zh: 'Mandarin Chinese', vi: 'Vietnamese', ko: 'Korean' };
+const GUESTS = ['zh', 'vi', 'ko'];
+// ការអានជាអក្សរឡាតាំង៖ Pinyin (ចិន), Romaja (កូរ៉េ) — វៀតណាមជាអក្សរឡាតាំងស្រាប់
+const ROMAN_FIELD = { zh: 'pinyin', ko: 'romanization' };
 
 function pickGuest(guest) { return GUESTS.includes(guest) ? guest : 'zh'; }
 
 // ភាសាតាមអក្សរដែល Gemini សរសេរ (ជឿជាក់ជាងស្លាក "spoken" ដែលពេលខ្លះខុស)
 function scriptLang(text) {
   if (/[ក-៿]/.test(text)) return 'km';
+  if (/[가-힯ᄀ-ᇿ㄰-㆏]/.test(text)) return 'ko';
   if (/[㐀-鿿豈-﫿]/.test(text)) return 'zh';
-  if (/[ăâđêôơưĂÂĐÊÔƠƯẠ-ỹ]/.test(text)) return 'vi';
+  if (/[ĂăÂâĐđÊêÔôƠơƯưẠ-ỹ]/.test(text)) return 'vi';
   return null;
 }
 
-// Pinyin មានតែពេលភ្ញៀវនិយាយចិន
 function schemaFor(guest) {
   const properties = {
     spoken: { type: 'string', enum: ['km', guest, 'other', 'none'] },
@@ -309,9 +311,10 @@ function schemaFor(guest) {
     translation: { type: 'string' },
   };
   const required = ['spoken', 'heard', 'translation'];
-  if (guest === 'zh') {
-    properties.pinyin = { type: 'string' };
-    required.push('pinyin');
+  const roman = ROMAN_FIELD[guest];
+  if (roman) {
+    properties[roman] = { type: 'string' };
+    required.push(roman);
   }
   return { type: 'object', properties, required };
 }
@@ -331,8 +334,13 @@ function systemPrompt({ zhScript, context }, guest) {
       `- Chinese text: Mandarin written in ${script} Chinese characters.`,
       '- "pinyin": Hanyu Pinyin with tone marks for the Chinese sentence of this turn (the transcription if Chinese was spoken, otherwise the translation), with spaces between words. Empty string if there is no Chinese.',
     );
-  } else {
+  } else if (guest === 'vi') {
     lines.push('- Vietnamese text: correct modern Vietnamese with all tone marks. Choose pronouns (tôi, em, anh, chị, bạn…) that fit how the two people address each other and keep the same politeness; for example Khmer បង is usually anh or chị, and អូន is em.');
+  } else {
+    lines.push(
+      '- Korean text: natural spoken Korean in Hangul. Use the polite 해요체 (-요 endings) unless the speaker is clearly more formal or more casual, and address the other person respectfully; Khmer បង or អូន usually become a polite form of address or are left out, as Koreans do.',
+      '- "romanization": Revised Romanization of Korean for the Korean sentence of this turn (the transcription if Korean was spoken, otherwise the translation), with spaces between words. Empty string if there is no Korean.',
+    );
   }
   lines.push('Return only the JSON object.');
   if (context && context.trim()) lines.push(`Conversation context (use it to choose the right words): ${context.trim().slice(0, 500)}`);
@@ -347,7 +355,7 @@ function audioTask(from, guest) {
     '2. "heard": transcribe exactly what was said, in the script of the spoken language. Empty if "none".',
     `3. "translation": interpret it into ${LANG[to]}. Exception: if the speaker actually spoke ${LANG[to]}, interpret it into ${LANG[from]} instead. Empty if "none".`,
   ];
-  if (guest === 'zh') steps.push('4. "pinyin": as described in the rules.');
+  if (ROMAN_FIELD[guest]) steps.push(`4. "${ROMAN_FIELD[guest]}": as described in the rules.`);
   return steps.join('\n');
 }
 
@@ -398,7 +406,7 @@ export function translate({ apiKey, model, from, guest, audioBase64, text, setti
     if (!['km', pair, 'other', 'none'].includes(spoken)) spoken = heard ? speaker : 'none';
     const seen = scriptLang(heard);
     if (spoken !== 'none' && (seen === 'km' || seen === pair)) spoken = seen;
-    const pinyin = pair === 'zh' ? clean(data.pinyin) : '';
+    const pinyin = ROMAN_FIELD[pair] ? clean(data[ROMAN_FIELD[pair]]) : ''; // Pinyin ឬ Romaja
     return { spoken, heard, translation: clean(data.translation), pinyin, model: used };
   };
   // ចាប់ផ្តើមម៉ូដែលពីរព្រមគ្នា ហើយបន្ថែមទីបីបើទាំងពីរយឺតជាង ២.៥ វិនាទី
@@ -412,7 +420,7 @@ export function translate({ apiKey, model, from, guest, audioBase64, text, setti
 
 // ---------- បកប្រែអក្សរក្នុងរូបថត ----------
 
-const IMAGE_LANGS = ['zh', 'vi', 'km', 'other', 'none'];
+const IMAGE_LANGS = ['zh', 'vi', 'ko', 'km', 'other', 'none'];
 
 const IMAGE_SCHEMA = {
   type: 'object',
@@ -433,14 +441,14 @@ const IMAGE_SCHEMA = {
 
 function imageTask(zhScript, guest) {
   const script = zhScript === 'traditional' ? 'Traditional' : 'Simplified';
-  const khmerInto = guest === 'vi' ? 'Vietnamese' : `Mandarin Chinese (${script} characters)`;
+  const khmerInto = { zh: `Mandarin Chinese (${script} characters)`, vi: 'Vietnamese', ko: 'Korean (polite 해요체)' }[guest];
   return [
     'Read all the text in this photo (signs, menus, labels, price tags, receipts, screenshots, handwriting).',
-    `- If the text is Khmer, translate it into ${khmerInto}. Text in any other language (Chinese, Vietnamese, English…): translate it into Khmer.`,
+    `- If the text is Khmer, translate it into ${khmerInto}. Text in any other language (Chinese, Vietnamese, Korean, English…): translate it into Khmer.`,
     '- Keep the reading order. Put words that belong together on one line (for example a product with its price).',
     '- Keep numbers, prices, sizes and units exactly as written, using Western digits and the currency sign (for example ¥25/件 becomes ¥25/ដុំ).',
-    '- "lang": the main language of the text: "zh" (Chinese), "vi" (Vietnamese), "km" (Khmer), "other", or "none" if there is no readable text.',
-    '- "lines": every line with "source" (the original text), "translation", and "pinyin" (Hanyu Pinyin with tone marks for the Chinese side of that line, empty if there is no Chinese).',
+    '- "lang": the main language of the text: "zh" (Chinese), "vi" (Vietnamese), "ko" (Korean), "km" (Khmer), "other", or "none" if there is no readable text.',
+    '- "lines": every line with "source" (the original text), "translation", and "pinyin": how to read the Chinese or Korean side of that line in Latin letters (Hanyu Pinyin with tone marks for Chinese, Revised Romanization for Korean); empty if that line has neither.',
     '- "note": one short Khmer sentence saying what this is (for example "តារាងតម្លៃសម្លៀកបំពាក់លក់ដុំ"). If there is no text, describe the photo briefly in Khmer.',
     'Return only the JSON object.',
   ].join('\n');

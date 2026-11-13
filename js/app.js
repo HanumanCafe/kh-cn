@@ -1,13 +1,13 @@
 // app.js — ផ្នែកសំខាន់របស់កម្មវិធី
 // ភ្ជាប់ប៊ូតុង → ថតសំឡេង → Gemini បកប្រែ → បង្ហាញ និងអានឲ្យឮ
-// អ្នកប្រើនិយាយខ្មែរ (ខាងឆ្វេង) — ភ្ញៀវនិយាយចិន ឬវៀតណាម (ខាងស្តាំ ប្តូរបាននៅខាងលើ)
+// អ្នកប្រើនិយាយខ្មែរ (ខាងឆ្វេង) — ភ្ញៀវនិយាយចិន វៀតណាម ឬកូរ៉េ (ខាងស្តាំ ប្តូរបាននៅខាងលើ)
 
 import { loadSettings, saveSettings, loadHistory, saveHistory, GUEST_LANGS } from './store.js';
-import { Recorder } from './recorder.js';
+import { Recorder, setKeepMic, releaseMic } from './recorder.js';
 import { translate, translateImage, synthesize, warmUp, VOICES, GeminiError } from './gemini.js';
 import { unlockAudio, stopAll, playUrl, audioToUrl, speakDevice, deviceVoiceFor } from './speaker.js';
 
-const VERSION = '1.3.0';
+const VERSION = '1.4.0';
 const WAVE_BARS = 22;
 
 const $ = (sel, root = document) => root.querySelector(sel);
@@ -58,7 +58,25 @@ const LANGS = {
       typeHint: 'វាយភាសាខ្មែរ ឬ វៀតណាម…',
     },
   },
+  ko: {
+    mark: '한', glyph: '한', name: '한국어', khmer: 'កូរ៉េ',
+    talk: { idle: '눌러서 말하기', starting: '마이크 켜는 중…', listening: '다시 누르면 종료' },
+    text: {
+      translating: '번역 중',
+      notClear: '잘 못 들었어요. 다시 말씀해 주세요.',
+      noSound: '소리가 들리지 않아요. 다시 말씀해 주세요.',
+      failed: '오류가 발생했어요. 다시 시도해 주세요.',
+      play: '듣기',
+      hero: '각자 자기 언어로 말하면 바로 통해요',
+      howto: '누르고 한국어로 말하면 크메르어로 번역해서 읽어 줘요.',
+      paneEmpty: '‘한’을 누르고 한국어로 말하면 크메르어로 번역돼요.',
+      typeHint: 'វាយភាសាខ្មែរ ឬ 한국어…',
+    },
+  },
 };
+
+// ការអានជាអក្សរឡាតាំង៖ Pinyin (ចិន), Romaja (កូរ៉េ)
+const ROMAN_LANG = { zh: 'zh-Latn-pinyin', ko: 'ko-Latn' };
 
 const state = {
   settings: loadSettings(),
@@ -130,10 +148,8 @@ function dots() {
 
 // lang="…" សម្រាប់ពុម្ពអក្សរត្រឹមត្រូវ (វៀតណាមប្រើពុម្ពអក្សរ iPhone ដែលមានសញ្ញាគ្រប់)
 function langAttr(lang) {
-  if (lang === 'km') return 'km';
   if (lang === 'zh') return state.settings.zhScript === 'traditional' ? 'zh-TW' : 'zh-CN';
-  if (lang === 'vi') return 'vi';
-  return null;
+  return LANGS[lang] ? lang : null; // 'km', 'vi', 'ko'
 }
 
 // ភាសានៃការបកប្រែ៖ ខ្មែរ → ភាសាភ្ញៀវ, ភាសាផ្សេងទាំងអស់ → ខ្មែរ
@@ -260,7 +276,7 @@ function emptyState() {
     h('div', { class: 'howto-row' }, h('span', { class: 'g c', 'aria-hidden': 'true' }, icon('i-camera')),
       h('span', {}, 'ថតរូប ស្លាកតម្លៃ ម៉ឺនុយ ឬផ្លាកសញ្ញា ដើម្បីបកប្រែអក្សរក្នុងរូប។')),
     h('div', { class: 'howto-row' }, h('span', { class: 'g c', 'aria-hidden': 'true' }, icon('i-lang')),
-      h('span', {}, 'ប្តូរភាសាភ្ញៀវ (ចិន ឬ វៀតណាម)៖ ចុចឈ្មោះភាសានៅខាងលើ។'))));
+      h('span', {}, `ប្តូរភាសាភ្ញៀវ (${GUEST_LANGS.map(c => LANGS[c].khmer).join(' ')})៖ ចុចឈ្មោះភាសានៅខាងលើ។`))));
   if (isIOS() && !isStandalone()) {
     box.append(h('div', { class: 'tip' }, icon('i-share'),
       h('span', {}, 'ដំឡើងជា App៖ ក្នុង Safari ចុចប៊ូតុង Share រួចជ្រើស «Add to Home Screen»។')));
@@ -285,11 +301,14 @@ function chatBubble(m, isLatest) {
     h('span', { class: 'msg-avatar', 'aria-hidden': 'true', lang: langAttr(m.from) }, L.mark));
   const body = h('div', { class: 'msg-body' });
   art.append(body);
-  const pinyin = state.settings.showPinyin && m.pinyin ? h('p', { class: 'msg-pinyin', lang: 'zh-Latn-pinyin' }, m.pinyin) : null;
+  // Pinyin / Romaja នៅក្រោមអក្សរចិន ឬកូរ៉េ (ខាងប្រភព ឬខាងការបកប្រែ)
+  const roman = (lang) => (state.settings.showPinyin && m.pinyin && ROMAN_LANG[lang]
+    ? h('p', { class: 'msg-pinyin', lang: ROMAN_LANG[lang] }, m.pinyin) : null);
 
   if (isLatest && m.status === 'done') body.append(h('p', { class: 'msg-chip' }, pairLabel(m.from, to)));
   body.append(h('p', { class: 'msg-src', lang: langAttr(m.from) }, m.source || '…'));
-  if (pinyin && m.from === 'zh' && m.status === 'done') body.append(pinyin);
+  const srcRoman = m.status === 'done' && roman(m.from);
+  if (srcRoman) body.append(srcRoman);
 
   if (m.status === 'pending') {
     body.append(
@@ -305,7 +324,8 @@ function chatBubble(m, isLatest) {
     return art;
   }
   body.append(h('p', { class: 'msg-dst', lang: langAttr(to) }, m.target));
-  if (pinyin && to === 'zh') body.append(pinyin);
+  const dstRoman = roman(to);
+  if (dstRoman) body.append(dstRoman);
   body.append(h('div', { class: 'msg-actions' },
     playButton(m, to),
     h('button', { type: 'button', 'data-action': 'copy', 'aria-label': 'ចម្លងការបកប្រែ' }, icon('i-copy')),
@@ -349,10 +369,11 @@ function photoCard(m, isLatest) {
   const lines = Array.isArray(m.lines) ? m.lines : [];
   if (lines.length) {
     const known = LANGS[m.from] ? m.from : null;
+    const romanLang = ROMAN_LANG[m.from] || ROMAN_LANG[to] || null;
     body.append(h('ol', { class: 'photo-lines' }, lines.map(l => h('li', {},
       h('p', { class: 'pl-src', lang: langAttr(m.from), 'data-lang': known }, l.source),
       h('p', { class: 'pl-dst', lang: langAttr(to) }, l.translation),
-      state.settings.showPinyin && l.pinyin ? h('p', { class: 'msg-pinyin', lang: 'zh-Latn-pinyin' }, l.pinyin) : null))));
+      state.settings.showPinyin && l.pinyin ? h('p', { class: 'msg-pinyin', lang: romanLang }, l.pinyin) : null))));
   } else {
     body.append(h('p', { class: 'photo-empty' }, 'រកមិនឃើញអក្សរក្នុងរូបនេះទេ។'));
   }
@@ -748,6 +769,7 @@ async function onTalk(lang) {
   state.rec.watchdog = setTimeout(() => {
     if (state.rec && state.rec.recorder === recorder && recorder.elapsedMs === 0) {
       cancelRecording();
+      releaseMic(); // ចុចលើកក្រោយ បើកមីក្រូហ្វូនថ្មី
       toast('មីក្រូហ្វូនមិនទាន់ដំណើរការ។ សូមចុចម្តងទៀត។');
     }
   }, 2000);
@@ -957,6 +979,7 @@ const F = {
   zhScript: $$('input[name="zhscript"]'),
   pinyin: $('#set-pinyin'),
   context: $('#set-context'),
+  keepMic: $('#set-keepmic'),
   autostop: $('#set-autostop'),
   model: $('#set-model'),
   ttsModel: $('#set-ttsmodel'),
@@ -985,6 +1008,7 @@ function loadSettingsForm() {
   F.zhScript.forEach(r => { r.checked = r.value === s.zhScript; });
   F.pinyin.checked = s.showPinyin;
   F.context.value = s.context;
+  F.keepMic.checked = s.keepMic;
   F.autostop.checked = s.autoStop;
   ensureOption(F.model, s.model);
   ensureOption(F.ttsModel, s.ttsModel);
@@ -1038,6 +1062,10 @@ function bindSettings() {
   F.zhScript.forEach(r => r.addEventListener('change', () => { if (r.checked) update({ zhScript: r.value }, { rerender: true }); }));
   F.pinyin.addEventListener('change', () => update({ showPinyin: F.pinyin.checked }, { rerender: true }));
   F.context.addEventListener('input', () => update({ context: F.context.value }));
+  F.keepMic.addEventListener('change', () => {
+    update({ keepMic: F.keepMic.checked });
+    setKeepMic(F.keepMic.checked);
+  });
   F.autostop.addEventListener('change', () => update({ autoStop: F.autostop.checked }));
   F.model.addEventListener('change', () => update({ model: F.model.value }));
   F.ttsModel.addEventListener('change', () => update({ ttsModel: F.ttsModel.value }, { clearAudio: true }));
@@ -1160,6 +1188,7 @@ function init() {
   }
 
   bindSettings();
+  setKeepMic(state.settings.keepMic);
   applyGuest();
   applyView();
 
