@@ -1,6 +1,6 @@
 /* =========================================================
-   បកប្រែ ខ្មែរ ⇄ 中文 / Tiếng Việt — រចនាប័ទ្ម (style) កំណែ ១.៣
-   ពណ៌មួយក្នុងមួយភាសា៖ ខៀវ = ខ្មែរ, ក្រហមផ្កាឈូក = ចិន, បៃតងខៀវ = វៀតណាម
+   បកប្រែ ខ្មែរ ⇄ 中文 / Tiếng Việt / 한국어 — រចនាប័ទ្ម (style) កំណែ ១.៤
+   ពណ៌មួយក្នុងមួយភាសា៖ ខៀវ = ខ្មែរ, ក្រហមផ្កាឈូក = ចិន, បៃតងខៀវ = វៀតណាម, ស្វាយ = កូរ៉េ
    ធាតុណាមាន data-lang="…" ទទួលពណ៌ភាសានោះតាម --c, --c-2, --c-ink, --c-tint, --c-glow, --c-shadow
    ផ្ទៃកញ្ចក់ (glass) សម្រាប់ប៊ូតុង និងផ្ទាំងបញ្ជា — អក្សរការបកប្រែធំ ងាយអាន
    ========================================================= */
@@ -60,6 +60,13 @@
   --vi-glow: rgba(31, 191, 159, 0.34);
   --vi-shadow: rgba(11, 133, 118, 0.32);
 
+  --ko: #A12C9E;
+  --ko-2: #DA5FD0;
+  --ko-ink: #82227F;
+  --ko-tint: rgba(161, 44, 158, 0.1);
+  --ko-glow: rgba(218, 95, 208, 0.32);
+  --ko-shadow: rgba(161, 44, 158, 0.32);
+
   --danger: #C4271D;
   --ok: #1D7F48;
   --chev: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1.5 6 6.5l5-5' fill='none' stroke='%236A6F86' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
@@ -67,6 +74,7 @@
   --font-km: "Kantumruy Pro", "Khmer Sangam MN", "Khmer MN", "Noto Sans Khmer", system-ui, sans-serif;
   --font-zh: "PingFang SC", "Hiragino Sans GB", "Heiti SC", "Noto Sans CJK SC", "Microsoft YaHei", system-ui, sans-serif;
   --font-latin: -apple-system, "SF Pro Text", system-ui, "Segoe UI", Roboto, sans-serif;
+  --font-ko: "Apple SD Gothic Neo", "Noto Sans KR", "Malgun Gothic", system-ui, sans-serif;
 
   --safe-top: env(safe-area-inset-top, 0px);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
@@ -116,6 +124,13 @@
     --vi-glow: rgba(30, 200, 170, 0.26);
     --vi-shadow: rgba(4, 90, 78, 0.5);
 
+    --ko: #B23DB0;
+    --ko-2: #E77EDD;
+    --ko-ink: #F4B5EE;
+    --ko-tint: rgba(231, 126, 221, 0.15);
+    --ko-glow: rgba(210, 90, 200, 0.26);
+    --ko-shadow: rgba(95, 15, 92, 0.5);
+
     --danger: #FF8A80;
     --ok: #7CD69F;
     --chev: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1.5 6 6.5l5-5' fill='none' stroke='%239095AE' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
@@ -126,6 +141,7 @@
 [data-lang="km"] { --c: var(--km); --c-2: var(--km-2); --c-ink: var(--km-ink); --c-tint: var(--km-tint); --c-glow: var(--km-glow); --c-shadow: var(--km-shadow); }
 [data-lang="zh"] { --c: var(--zh); --c-2: var(--zh-2); --c-ink: var(--zh-ink); --c-tint: var(--zh-tint); --c-glow: var(--zh-glow); --c-shadow: var(--zh-shadow); }
 [data-lang="vi"] { --c: var(--vi); --c-2: var(--vi-2); --c-ink: var(--vi-ink); --c-tint: var(--vi-tint); --c-glow: var(--vi-glow); --c-shadow: var(--vi-shadow); }
+[data-lang="ko"] { --c: var(--ko); --c-2: var(--ko-2); --c-ink: var(--ko-ink); --c-tint: var(--ko-tint); --c-glow: var(--ko-glow); --c-shadow: var(--ko-shadow); }
 
 /* ---------- មូលដ្ឋាន ---------- */
 *, *::before, *::after { box-sizing: border-box; }
@@ -147,6 +163,8 @@ body {
 :lang(zh), :lang(zh-CN), :lang(zh-TW) { font-family: var(--font-zh); }
 /* Kantumruy គ្មានអក្សរវៀតណាម (ệ ơ ư đ…) — ប្រើពុម្ពអក្សរ iPhone ដើម្បីកុំឲ្យលាយពុម្ពក្នុងពាក្យតែមួយ */
 :lang(vi) { font-family: var(--font-latin); }
+/* កូរ៉េ៖ ពុម្ពអក្សរ Hangul របស់ iPhone ហើយកុំកាត់ពាក្យពាក់កណ្តាល */
+:lang(ko) { font-family: var(--font-ko); word-break: keep-all; }
 button, input, select, textarea { font: inherit; color: inherit; }
 button { cursor: pointer; -webkit-tap-highlight-color: transparent; touch-action: manipulation; }
 :focus-visible { outline: 3px solid var(--km-2); outline-offset: 2px; }
@@ -442,6 +460,7 @@ html[data-listening="guest"] .glow-km { opacity: 0.35; }
 .hero-mark span + span { margin-left: -22px; transform: rotate(6deg); }
 .hero-mark span:lang(zh) { font-weight: 600; font-size: 46px; }
 .hero-mark span:lang(vi) { font-size: 38px; letter-spacing: -0.03em; }
+.hero-mark span:lang(ko) { font-size: 44px; }
 .hero-title { margin: 0; font-size: 26px; font-weight: 700; line-height: 1.5; }
 .hero-sub { margin: 0; color: var(--muted); font-size: 16px; }
 
@@ -541,6 +560,7 @@ html[data-listening="guest"] .glow-km { opacity: 0.35; }
 .talk-glyph { font-size: 50px; line-height: 1.12; font-weight: 700; transition: opacity 0.2s ease, transform 0.38s var(--ease); }
 .talk:lang(zh) .talk-glyph { font-weight: 600; font-size: 45px; line-height: 1.2; }
 .talk:lang(vi) .talk-glyph { font-size: 33px; line-height: 1.7; letter-spacing: -0.02em; white-space: nowrap; }
+.talk:lang(ko) .talk-glyph { font-size: 44px; line-height: 1.25; }
 .talk:lang(vi) .talk-hint { line-height: 1.75; } /* ចន្លោះសម្រាប់សញ្ញាលើអក្សរវៀតណាម (ấ ể) */
 .talk-name { font-size: 15px; font-weight: 700; line-height: 1.35; }
 .talk-hint { font-size: 12px; line-height: 1.45; opacity: 0.86; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
@@ -631,6 +651,7 @@ html[data-listening="guest"] .glow-km { opacity: 0.35; }
 .pane-dock .talk-glyph { font-size: 46px; }
 .pane-dock .talk:lang(zh) .talk-glyph { font-size: 42px; }
 .pane-dock .talk:lang(vi) .talk-glyph { font-size: 31px; }
+.pane-dock .talk:lang(ko) .talk-glyph { font-size: 41px; }
 
 .fmsg {
   align-self: flex-start;
@@ -946,6 +967,7 @@ html[data-listening="guest"] .glow-km { opacity: 0.35; }
   .talk-glyph { font-size: 42px; }
   .talk:lang(zh) .talk-glyph { font-size: 38px; }
   .talk:lang(vi) .talk-glyph { font-size: 29px; }
+  .talk:lang(ko) .talk-glyph { font-size: 37px; }
   .talk-live { top: 10px; }
   .msg.is-latest .msg-dst { font-size: 23px; }
   .chat { padding-bottom: calc(130px + var(--safe-bottom)); }
