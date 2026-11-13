@@ -43,6 +43,12 @@ export function setKeepMic(keep) {
   if (!mic.keep) releaseMic();
 }
 
+// មុនចាក់សំឡេង៖ ប្តូរទៅ playback (ឮខ្លាំង) — លើកលែងពេលមីក្រូហ្វូននៅបើក ព្រោះ playback ផ្អាកមីក្រូហ្វូន
+export function playbackSession() {
+  const holding = !!mic.stream && mic.stream.getAudioTracks().some(t => t.readyState === 'live');
+  if (!holding) setAudioSession('playback');
+}
+
 export class Recorder {
   constructor({ onLevel = () => {}, onAutoStop = () => {}, autoStop = true, maxSeconds = 60 } = {}) {
     this.onLevel = onLevel;

@@ -1,5 +1,6 @@
-// speaker.js — ចាក់សំឡេងចេញ៖ សំឡេង Gemini (ឯកសារ WAV) ឬ សំឡេងដែលមានស្រាប់ក្នុង iPhone
-import { setAudioSession, encodeWav } from './recorder.js';
+// speaker.js — ចាក់សំឡេងចេញ៖ សំឡេង Gemini (ឯកសារ WAV) ឬ សំឡេងដែលមានស្រាប់ក្នុងទូរសព្ទ
+// (iPhone៖ speechSynthesis, App Android៖ TextToSpeech តាមស្ពាន window.KHCNNative)
+import { playbackSession, encodeWav } from './recorder.js';
 
 let player = null;     // <audio> តែមួយ ប្រើឡើងវិញ (iPhone អនុញ្ញាតបន្ទាប់ពី "unlock")
 let unlocked = false;
@@ -49,7 +50,7 @@ export function isPlaying() { return !!current; }
 // ចាក់ឯកសារសំឡេង (blob URL)
 export function playUrl(url) {
   stopAll();
-  setAudioSession('playback');
+  playbackSession();
   const p = getPlayer();
   return new Promise((resolve, reject) => {
     let settled = false;
@@ -101,7 +102,17 @@ export function audioToUrl(base64, mimeType = 'audio/wav', sampleRate = 24000) {
   return URL.createObjectURL(new Blob([bytes], { type: mime || 'audio/wav' }));
 }
 
-// ---------- សំឡេងក្នុង iPhone (speechSynthesis) ----------
+// ---------- សំឡេងក្នុងទូរសព្ទ ----------
+
+// App Android៖ WebView គ្មាន speechSynthesis ទេ — App ផ្តល់ TextToSpeech របស់ Android ជំនួស
+const native = window.KHCNNative || null;
+const nativeWaits = new Map(); // id → មុខងារទទួល 'start' | 'end' | 'error'
+if (native) window.__khcnTts = (id, type) => { const wait = nativeWaits.get(id); if (wait) wait(type); };
+
+export function hasDeviceSpeech() { return !!native || 'speechSynthesis' in window; }
+
+// iPhone ពេលខ្លះផ្ទុកបញ្ជីសំឡេងយឺត (បញ្ជីទទេ ប៉ុន្តែសំឡេងដើមនៅតែប្រើបាន)
+export function deviceVoicesLoading() { return !native && 'speechSynthesis' in window && voices().length === 0; }
 
 function voices() {
   try { return window.speechSynthesis ? speechSynthesis.getVoices() || [] : []; } catch { return []; }
@@ -116,6 +127,9 @@ const SPEECH_TAG = { km: 'km-KH', zh: 'zh-CN', vi: 'vi-VN', ko: 'ko-KR' };
 
 // រកសំឡេងល្អបំផុតសម្រាប់ភាសា ('km', 'zh', 'vi' ឬ 'ko') — null បើគ្មាន
 export function deviceVoiceFor(lang) {
+  if (native) {
+    try { return native.has(lang) ? { name: 'android', lang } : null; } catch { return null; }
+  }
   const all = voices();
   let list;
   if (lang === 'zh') {
@@ -135,6 +149,7 @@ export function deviceVoiceFor(lang) {
 
 export function speakDevice(text, lang, rate = 1) {
   stopAll();
+  if (native) return speakNative(text, lang, rate);
   return new Promise((resolve, reject) => {
     if (!('speechSynthesis' in window)) { reject(new Error('no-speech-synthesis')); return; }
     const u = new SpeechSynthesisUtterance(text);
@@ -171,7 +186,40 @@ export function speakDevice(text, lang, rate = 1) {
     }, 2500);
     // iPhone ពេលខ្លះមិនផ្ញើ "onend" — កំណត់ពេលការពារ
     guard = setTimeout(() => finish(), Math.max(4000, (text.length * 380) / rate) + 3000);
-    setAudioSession('playback');
+    playbackSession();
     speechSynthesis.speak(u);
+  });
+}
+
+let nativeSeq = 0;
+function speakNative(text, lang, rate) {
+  return new Promise((resolve, reject) => {
+    const id = `u${++nativeSeq}`;
+    let settled = false;
+    let started = false;
+    const finish = (err) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(startGuard);
+      clearTimeout(guard);
+      nativeWaits.delete(id);
+      if (current === handle) current = null;
+      err ? reject(err) : resolve();
+    };
+    const handle = { stop: () => { try { native.stop(); } catch { /* ignore */ } finish(); } };
+    current = handle;
+    nativeWaits.set(id, (type) => {
+      if (type === 'start') started = true;
+      else if (type === 'end') finish();
+      else finish(new Error('native-tts-error'));
+    });
+    // បើមិនចាប់ផ្តើមនិយាយ → ប្រើសំឡេង Gemini ជំនួស
+    const startGuard = setTimeout(() => {
+      if (started) return;
+      try { native.stop(); } catch { /* ignore */ }
+      finish(new Error('speech-did-not-start'));
+    }, 4000);
+    const guard = setTimeout(() => finish(), Math.max(4000, (text.length * 380) / rate) + 3000);
+    try { native.speak(id, text, lang, rate); } catch (err) { finish(err); }
   });
 }

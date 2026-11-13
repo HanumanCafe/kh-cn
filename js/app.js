@@ -5,9 +5,11 @@
 import { loadSettings, saveSettings, loadHistory, saveHistory, GUEST_LANGS } from './store.js';
 import { Recorder, setKeepMic, releaseMic } from './recorder.js';
 import { translate, translateImage, synthesize, warmUp, VOICES, GeminiError } from './gemini.js';
-import { unlockAudio, stopAll, playUrl, audioToUrl, speakDevice, deviceVoiceFor } from './speaker.js';
+import { unlockAudio, stopAll, playUrl, audioToUrl, speakDevice, deviceVoiceFor, hasDeviceSpeech, deviceVoicesLoading } from './speaker.js';
 
-const VERSION = '1.4.0';
+const VERSION = '1.5.0';
+// បើកក្នុង App (Android APK ឬ iPhone IPA) — App ចាំសិទ្ធិមីក្រូហ្វូនដោយខ្លួនឯង
+const NATIVE_APP = /KHCNApp\//.test(navigator.userAgent);
 const WAVE_BARS = 22;
 
 const $ = (sel, root = document) => root.querySelector(sel);
@@ -178,7 +180,7 @@ function isIOS() {
 }
 
 function isStandalone() {
-  return window.navigator.standalone === true || (window.matchMedia && matchMedia('(display-mode: standalone)').matches);
+  return NATIVE_APP || window.navigator.standalone === true || (window.matchMedia && matchMedia('(display-mode: standalone)').matches);
 }
 
 // អក្សរដែលវាយ៖ មានអក្សរខ្មែរ = អ្នកប្រើ, គ្មាន = ភ្ញៀវ (ចិន វៀតណាម…), null បើគ្មានអក្សរសោះ
@@ -223,6 +225,8 @@ function errorText(err) {
 function micErrorText(err) {
   const name = err && err.name;
   if (name === 'NotAllowedError' || name === 'SecurityError') {
+    if (NATIVE_APP && /Android/.test(navigator.userAgent)) return 'សូមអនុញ្ញាតមីក្រូហ្វូន៖ Settings → Apps → បកប្រែ → Permissions → Microphone → Allow';
+    if (NATIVE_APP) return 'សូមអនុញ្ញាតមីក្រូហ្វូន៖ Settings → Apps → បកប្រែ → Microphone → បើក';
     return 'សូមអនុញ្ញាតមីក្រូហ្វូន (Allow)។ បើបានបដិសេធរួច៖ Settings → Apps → Safari → Microphone → Allow';
   }
   if (name === 'NotFoundError') return 'រកមិនឃើញមីក្រូហ្វូនទេ។';
@@ -599,11 +603,10 @@ async function runPhoto(msg) {
 // ================= ការអានឲ្យឮ =================
 
 function useDeviceVoice(lang) {
-  if (!('speechSynthesis' in window)) return false;
-  if (lang === 'km') return !!deviceVoiceFor('km'); // iPhone បច្ចុប្បន្នគ្មានសំឡេងខ្មែរ → ប្រើ Gemini
+  if (!hasDeviceSpeech()) return false;
+  if (lang === 'km') return !!deviceVoiceFor('km'); // iPhone គ្មានសំឡេងខ្មែរ → Gemini (Android ខ្លះមាន)
   if (state.settings.guestEngine !== 'device') return false;
-  // iPhone ពេលខ្លះផ្ទុកបញ្ជីសំឡេងយឺត — បើបញ្ជីនៅទទេ ប្រើសំឡេងដើមរបស់ iPhone
-  return !!deviceVoiceFor(lang) || speechSynthesis.getVoices().length === 0;
+  return !!deviceVoiceFor(lang) || deviceVoicesLoading();
 }
 
 function stopSpeaking() {
@@ -1062,6 +1065,10 @@ function bindSettings() {
   F.zhScript.forEach(r => r.addEventListener('change', () => { if (r.checked) update({ zhScript: r.value }, { rerender: true }); }));
   F.pinyin.addEventListener('change', () => update({ showPinyin: F.pinyin.checked }, { rerender: true }));
   F.context.addEventListener('input', () => update({ context: F.context.value }));
+  if (NATIVE_APP) { // App ចាំសិទ្ធិមីក្រូហ្វូនស្រាប់ — មិនបាច់ទុកមីក្រូហ្វូនបើក
+    F.keepMic.closest('.row').hidden = true;
+    $('#keepmic-foot').hidden = true;
+  }
   F.keepMic.addEventListener('change', () => {
     update({ keepMic: F.keepMic.checked });
     setKeepMic(F.keepMic.checked);
@@ -1188,7 +1195,7 @@ function init() {
   }
 
   bindSettings();
-  setKeepMic(state.settings.keepMic);
+  setKeepMic(state.settings.keepMic && !NATIVE_APP);
   applyGuest();
   applyView();
 
