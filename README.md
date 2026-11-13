@@ -50,6 +50,30 @@ iPhone អនុញ្ញាតឲ្យប្រើមីក្រូហ្វ�
 4. បើក App ពីអេក្រង់ដើម → ចុច «ដាក់ Gemini API key» → ចុច **បិទភ្ជាប់ key** (កម្មវិធីសាកល្បង key ភ្លាម)
 5. ពេលទូរសព្ទសួរ ចុច **Allow** ឲ្យប្រើមីក្រូហ្វូន
 
+## App ពិត៖ Android (APK) និង iPhone (IPA)
+
+App ទាំងពីរបើកកម្មវិធីដដែល (<https://hanumancafe.github.io/kh-cn/>) ដូច្នេះវាយកកំណែថ្មីដោយខ្លួនឯង មិនបាច់ដំឡើងម្តងទៀតពេលកែកូដ។ ចំណុចល្អ៖ **App សួរសិទ្ធិមីក្រូហ្វូនតែម្តងគត់ ហើយចាំជារៀងរហូត**។ App មិនចែករំលែកការកំណត់ជាមួយ Safari ឬ Chrome ទេ ដូច្នេះត្រូវដាក់ API key ម្តងក្នុង App។
+
+**Android (`KH-CN.apk`)**
+
+1. ផ្ញើ `KH-CN.apk` ទៅទូរសព្ទ (Telegram, Google Drive ឬខ្សែ USB)
+2. ចុចលើឯកសារ → Android សួរ «Install unknown apps» → អនុញ្ញាតសម្រាប់កម្មវិធីដែលបើកឯកសារ → **Install**
+3. បើ Google Play Protect ព្រមាន → **More details** → **Install anyway** (App ធ្វើខ្លួនឯង មិនមែនពី Play Store)
+4. បើក App «បកប្រែ» → ដាក់ API key → ចុច **ខ** → ពេល Android សួរមីក្រូហ្វូន ជ្រើស **While using the app**
+- សំឡេងអាន៖ ប្រើសំឡេង Google របស់ទូរសព្ទ (ចិន វៀតណាម កូរ៉េ និងខ្មែរ បើទូរសព្ទមាន) — បើគ្មាន ប្រើសំឡេង Gemini
+- កំណែថ្មីរបស់ APK ត្រូវចុះហត្ថលេខាដោយ key ដដែល (`khcn-release.jks` — រក្សាទុកដោយឡែក កុំដាក់លើ GitHub) ទើបដំឡើងពីលើ App ចាស់បាន
+
+**iPhone (`KHCN-unsigned.ipa`)**
+
+Apple មិនឲ្យដំឡើង App ក្រៅ App Store ដោយផ្ទាល់ទេ — ត្រូវចុះហត្ថលេខាដោយ Apple ID របស់អ្នក៖
+
+1. ទាញ IPA៖ GitHub → `HanumanCafe/kh-cn` → **Actions** → **iPhone app (IPA)** → ដំណើរការចុងក្រោយ → **Artifacts** (Mac របស់ GitHub បង្កើតវាដោយខ្លួនឯង ពេលកែឯកសារក្នុង `native/ios`)
+2. លើកុំព្យូទ័រ Windows៖ ដំឡើង [Sideloadly](https://sideloadly.io/) និង iTunes + iCloud **កំណែពីគេហទំព័រ Apple** (មិនមែនពី Microsoft Store)
+3. ភ្ជាប់ iPhone ដោយខ្សែ → អូស IPA ចូល Sideloadly → បញ្ចូល Apple ID → **Start**
+4. លើ iPhone៖ Settings → General → VPN & Device Management → ចុច Apple ID របស់អ្នក → **Trust**
+5. Settings → Privacy & Security → **Developer Mode** → បើក (iPhone ចាប់ផ្តើមឡើងវិញ)
+- Apple ID ឥតគិតថ្លៃ៖ App ដំណើរការ ៧ ថ្ងៃ — បន្ទាប់មកដំឡើងម្តងទៀតតាម Sideloadly (key និងប្រវត្តិមិនបាត់ទេ)។ Apple Developer Program (៩៩ ដុល្លារ/ឆ្នាំ) ដំណើរការបានយូរជាង ឬប្រើ TestFlight
+
 ---
 
 ## របៀបប្រើ
@@ -121,7 +145,9 @@ KH-CN/
 ├── js/speaker.js         ចាក់សំឡេងចេញ
 ├── js/store.js           រក្សាទុកការកំណត់ និងប្រវត្តិ
 ├── icons/                រូបតំណាង App
-└── fonts/                ពុម្ពអក្សរខ្មែរ Kantumruy Pro (SIL OFL)
+├── fonts/                ពុម្ពអក្សរខ្មែរ Kantumruy Pro (SIL OFL)
+├── native/ios/           App iPhone (Swift + XcodeGen) — បង្កើតដោយ .github/workflows/ios.yml
+└── native/android/       App Android (Java) — ./build.sh (មានតែក្នុងកុំព្យូទ័រ មិនដាក់លើ GitHub)
 ```
 
 **ព័ត៌មានបច្ចេកទេស**៖ ប្រើ Gemini Interactions API (`v1beta`)។ ភាសាភ្ញៀវរក្សាក្នុងការកំណត់ `guest` (`zh`, `vi` ឬ `ko`) ហើយសារនីមួយៗចាំភាសាភ្ញៀវរបស់វា ដូច្នេះសន្ទនាចាស់នៅត្រឹមត្រូវ ពេលប្តូរភាសា។ ម៉ូដែលដើម៖ `gemini-3.6-flash` (ស្តាប់ + បកប្រែក្នុងការហៅតែម្តង) និង `gemini-3.8-flash-tts` (សំឡេង)។ ប្តូរបានក្នុងការកំណត់។ កម្មវិធីសួរម៉ូដែល ២ ស្របគ្នាតាំងពីដំបូង ហើយបើយឺតជាង ២.៥ វិនាទី (រូបថត ៤ វិនាទី) ចាប់ផ្តើមម៉ូដែលទី ៣ — យកចម្លើយណាមកមុន។ រូបថតត្រូវបង្រួមជា JPEG ១៦០០ px មុនផ្ញើ។
